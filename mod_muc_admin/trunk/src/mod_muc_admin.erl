@@ -383,7 +383,7 @@ create_room(Name, Host, ServerHost) ->
 					 default_room_options, []),
 
     %% Store the room on the server, it is not started yet though at this point
-    mod_muc:store_room(Host, Name, DefRoomOpts),
+    mod_muc:store_room(ServerHost, Host, Name, DefRoomOpts),
 
     %% Get all remaining mod_muc parameters that might be utilized
     Access = gen_mod:get_module_opt(ServerHost, mod_muc, access, all),
@@ -420,9 +420,9 @@ register_room(Host, Name, Pid) ->
 
 %% Create the room only in the database.
 %% It is required to restart the MUC service for the room to appear.
-muc_create_room({Name, Host, _}, DefRoomOpts) ->
+muc_create_room(ServerHost, {Name, Host, _}, DefRoomOpts) ->
     io:format("Creating room ~s@~s~n", [Name, Host]),
-    mod_muc:store_room(Host, Name, DefRoomOpts).
+    mod_muc:store_room(ServerHost, Host, Name, DefRoomOpts).
 
 %% @spec (Name::string(), Host::string(), ServerHost::string()) ->
 %%       ok | {error, room_not_exists}
@@ -503,7 +503,7 @@ create_rooms_file(Filename) ->
     %% Read the default room options defined for the first virtual host
     DefRoomOpts = gen_mod:get_module_opt(?MYNAME, mod_muc,
 					 default_room_options, []),
-    [muc_create_room(A, DefRoomOpts) || A <- Rooms],
+    [muc_create_room(?MYNAME, A, DefRoomOpts) || A <- Rooms],
 	ok.
 
 
@@ -827,7 +827,7 @@ set_room_affiliation(Name, Service, JID, AffiliationString) ->
 	    Affiliations = change_affiliation(Affiliation, LJID, StateData#state.affiliations),
 	    Res = StateData#state{affiliations = Affiliations},
 	    {ok, _State} = gen_fsm:sync_send_all_state_event(Pid, {change_state, Res}),
-	    mod_muc:store_room(Res#state.host, Res#state.room, make_opts(Res)),
+	    mod_muc:store_room(Res#state.server_host, Res#state.host, Res#state.room, make_opts(Res)),
 	    ok;
 	[] ->
 	    error
