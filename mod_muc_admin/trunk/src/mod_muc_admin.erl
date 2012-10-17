@@ -19,6 +19,7 @@
 	 create_rooms_file/1, destroy_rooms_file/1,
 	 rooms_unused_list/2, rooms_unused_destroy/2,
 	 get_room_occupants/2,
+	 get_room_occupants_number/2,
 	 send_direct_invitation/4,
 	 change_room_option/4,
 	 set_room_affiliation/4,
@@ -117,6 +118,12 @@ commands() ->
 							   {role, string}
 							  ]}}
 					     }}},
+
+     #ejabberd_commands{name = get_room_occupants_number, tags = [muc_room],
+			desc = "Get the number of occupants of a MUC room",
+			module = ?MODULE, function = get_room_occupants_number,
+			args = [{name, string}, {service, string}],
+			result = {occupants, integer}},
 
      #ejabberd_commands{name = send_direct_invitation, tags = [muc_room],
 			desc = "Send a direct invitation to several destinations",
@@ -652,6 +659,9 @@ get_room_occupants(Pid) ->
 	       atom_to_list(Info#user.role)}
       end,
       dict:to_list(S#state.users)).
+
+get_room_occupants_number(Room, Host) ->
+    length(get_room_occupants(Room, Host)).
 
 %%----------------------------
 %% Send Direct Invitation
