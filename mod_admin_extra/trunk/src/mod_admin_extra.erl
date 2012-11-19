@@ -402,7 +402,13 @@ commands() ->
 			args = [{action, string}, {subs, string},
 				{asks, string}, {users, string},
 				{contacts, string}],
-			result = {res, rescode}},
+			result = {response,
+				  {list,
+				   {pairs, {tuple,
+					       [{user, string},
+						{contact, string}
+					       ]}}
+				  }}},
      #ejabberd_commands{name = get_roster, tags = [roster],
 			desc = "Get roster of a local user",
 			module = ?MODULE, function = get_roster,
@@ -1463,8 +1469,8 @@ process_rosteritems(ActionS, SubsS, AsksS, UsersS, ContactsS) ->
 		),
 
     case rosteritem_purge({Action, Subs, Asks, Users, Contacts}) of
-	{atomic, ok} ->
-	    ok;
+	{atomic, Res} ->
+	    Res;
 	{error, Reason} ->
 	    io:format("Error purging rosteritems: ~p~n", [Reason]),
 	    error;
@@ -1478,33 +1484,37 @@ rosteritem_purge(Options) ->
     Num_rosteritems = mnesia:table_info(roster, size),
     io:format("There are ~p roster items in total.~n", [Num_rosteritems]),
     Key = mnesia:dirty_first(roster),
-    ok = rip(Key, Options, {0, Num_rosteritems, 0, 0}),
-    {atomic, ok}.
+    Res = rip(Key, Options, {0, Num_rosteritems, 0, 0}, []),
+    {atomic, Res}.
 
-rip('$end_of_table', _Options, Counters) ->
+rip('$end_of_table', _Options, Counters, Res) ->
     print_progress_line(Counters),
-    ok;
-rip(Key, Options, {Pr, NT, NV, ND}) ->
+    Res;
+rip(Key, Options, {Pr, NT, NV, ND}, Res) ->
     Key_next = mnesia:dirty_next(roster, Key),
     {Action, _, _, _, _} = Options,
-    ND2 = case decide_rip(Key, Options) of
+    {ND2, Res2} = case decide_rip(Key, Options) of
 	      true ->
-		  apply_action(Action, Key),
-		  ND+1;
+		  Jids = apply_action(Action, Key),
+		  {ND+1, [Jids | Res]};
 	      false ->
-		  ND
+		  {ND, Res}
 	  end,
     NV2 = NV+1,
     Pr2 = print_progress_line({Pr, NT, NV2, ND2}),
-    rip(Key_next, Options, {Pr2, NT, NV2, ND2}).
+    rip(Key_next, Options, {Pr2, NT, NV2, ND2}, Res2).
 
 apply_action(list, Key) ->
     {User, Server, JID} = Key,
     {RUser, RServer, _} = JID,
-    io:format("Matches: ~s@~s ~s@~s~n", [User, Server, RUser, RServer]);
+    Jid1string = User ++ "@" ++ Server,
+    Jid2string = RUser ++ "@" ++ RServer,
+    io:format("Matches: ~s ~s~n", [Jid1string, Jid2string]),
+    {Jid1string, Jid2string};
 apply_action(delete, Key) ->
-    apply_action(list, Key),
-    mnesia:dirty_delete(roster, Key).
+    R = apply_action(list, Key),
+    mnesia:dirty_delete(roster, Key),
+    R.
 
 print_progress_line({Pr, NT, NV, ND}) ->
     Pr2 = trunc((NV/NT)*100),
