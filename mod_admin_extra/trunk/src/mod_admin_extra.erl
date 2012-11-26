@@ -156,7 +156,7 @@ commands() ->
 			module = ?MODULE, function = remove_node,
 			args = [{node, string}],
 			result = {res, rescode}},
-     #ejabberd_commands{name = export2odbc, tags = [mnesia],
+     #ejabberd_commands{name = export2odbc, tags = [mnesia], %% Copied to ejabberd 2.1.x after 11
 			desc = "Export Mnesia tables to files in directory",
 			module = ?MODULE, function = export2odbc,
 			args = [{host, string}, {path, string}],
