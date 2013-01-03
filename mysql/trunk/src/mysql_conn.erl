@@ -306,6 +306,7 @@ init(Host, Port, User, Password, Database, LogFun, Parent) ->
 				      " to database ~p : ~p",
 				      [Database,
 				       mysql:get_result_reason(MySQLRes)]),
+			    gen_tcp:close(Sock),
 			    Parent ! {mysql_conn, self(),
 				      {error, failed_changing_database}};
 			%% ResultType: data | updated
