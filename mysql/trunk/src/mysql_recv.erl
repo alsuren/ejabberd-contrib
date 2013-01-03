@@ -105,7 +105,8 @@ init(Host, Port, LogFun, Parent) ->
 			  },
 	    loop(State);
 	E ->
-	    mysql:log(LogFun, error, "mysql_recv: Failed connecting to ~p:~p : ~p",
+	    mysql:log(LogFun, error,
+		      "mysql_recv: Failed connecting to ~p:~p : ~p",
 		      [Host, Port, E]),
 	    Msg = lists:flatten(io_lib:format("connect failed : ~p", [E])),
 	    Parent ! {mysql_recv, self(), init, {error, Msg}}
@@ -127,11 +128,14 @@ loop(State) ->
 	    Rest = sendpacket(State#state.parent, NewData),
 	    loop(State#state{data = Rest});
 	{tcp_error, Sock, Reason} ->
-	    mysql:log(State#state.log_fun, error, "mysql_recv: Socket ~p closed : ~p", [Sock, Reason]),
-	    State#state.parent ! {mysql_recv, self(), closed, {error, Reason}},
+	    mysql:log(State#state.log_fun, error, "mysql_recv: "
+		      "Socket ~p closed : ~p", [Sock, Reason]),
+	    State#state.parent ! {mysql_recv, self(), closed,
+				  {error, Reason}},
 	    error;
 	{tcp_closed, Sock} ->
-	    mysql:log(State#state.log_fun, debug, "mysql_recv: Socket ~p closed", [Sock]),
+	    mysql:log(State#state.log_fun, debug, "mysql_recv: "
+		      "Socket ~p closed", [Sock]),
 	    State#state.parent ! {mysql_recv, self(), closed, normal},
 	    error
     end.

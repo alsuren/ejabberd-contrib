@@ -112,19 +112,29 @@
 %%           Pid    = pid()
 %%           Reason = string()
 %%--------------------------------------------------------------------
-start(Host, Port, User, Password, Database, LogFun) when is_list(Host), is_integer(Port), is_list(User),
-							 is_list(Password), is_list(Database) ->
+start(Host, Port, User, Password,
+      Database, LogFun) when is_list(Host),
+			     is_integer(Port),
+			     is_list(User),
+			     is_list(Password),
+			     is_list(Database) ->
     ConnPid = self(),
     Pid = spawn(fun () ->
-			init(Host, Port, User, Password, Database, LogFun, ConnPid)
+			init(Host, Port, User, Password, Database,
+			     LogFun, ConnPid)
 		end),
     post_start(Pid, LogFun).
 
-start_link(Host, Port, User, Password, Database, LogFun) when is_list(Host), is_integer(Port), is_list(User),
-							 is_list(Password), is_list(Database) ->
+start_link(Host, Port, User, Password,
+	   Database, LogFun) when is_list(Host),
+				  is_integer(Port),
+				  is_list(User),
+				  is_list(Password),
+				  is_list(Database) ->
     ConnPid = self(),
     Pid = spawn_link(fun () ->
-			init(Host, Port, User, Password, Database, LogFun, ConnPid)
+			init(Host, Port, User, Password, Database,
+			     LogFun, ConnPid)
 		end),
     post_start(Pid, LogFun).
 
@@ -137,6 +147,8 @@ post_start(Pid, _LogFun) ->
 	{mysql_conn, Pid, ok} ->
 	    {ok, Pid};
 	{mysql_conn, Pid, {error, Reason}} ->
+	    mysql:log(_LogFun, error, "mysql_conn: post_start error ~p~n",
+		      [Reason]),
 	    stop(Pid),
 	    {error, Reason}
 %	Unknown ->
@@ -144,6 +156,8 @@ post_start(Pid, _LogFun) ->
 %	    mysql:log(_LogFun, debug, "mysql_conn: Unknown signal : ~p", [Unknown]),
 %	    {error, "unknown signal received"}
     after Timeout ->
+	    mysql:log(_LogFun, error, "mysql_conn: post_start timeout~n",
+		      []),
 	    stop(Pid),
 	    {error, "timed out"}
     end.
@@ -186,7 +200,8 @@ squery(Pid, Query, From, Options) when is_pid(Pid), is_list(Query) ->
 	    %% We are not using a mysql_dispatcher, await the response
 	    wait_fetch_result(TRef, Pid);
 	_ ->
-	    %% From is gen_server From, Pid will do gen_server:reply() when it has an answer
+	    %% From is gen_server From, Pid will do gen_server:reply()
+	    %% when it has an answer
 	    ok
     end.
 
@@ -207,7 +222,7 @@ wait_fetch_result(TRef, Pid) ->
 	    Result;
 	{fetch_result, _BadRef, Pid, _Result} ->
 	    wait_fetch_result(TRef, Pid);
-	{timeout, TRef, _} ->
+	{timeout, TRef, _Info} ->
 	    stop(Pid),
 	    {error, "query timed out"}
     end.
@@ -230,21 +245,31 @@ stop(Pid) ->
 %%
 %% Note    : Only to be used externally by the 'mysql_auth' module.
 %%--------------------------------------------------------------------
-do_recv(LogFun, RecvPid, SeqNum) when is_function(LogFun); LogFun == undefined, SeqNum == undefined ->
+do_recv(LogFun, RecvPid, SeqNum) when is_function(LogFun);
+				      LogFun == undefined,
+				      SeqNum == undefined ->
     receive
         {mysql_recv, RecvPid, data, Packet, Num} ->
-            %%mysql:log(LogFun, debug, "mysql_conn: recv packet ~p: ~p", [Num, Packet]),
+            %%mysql:log(LogFun, debug, "mysql_conn: recv packet ~p:
+            %%~p", [Num, Packet]),
 	    {ok, Packet, Num};
 	{mysql_recv, RecvPid, closed, _E} ->
+	    mysql:log(LogFun, error, "mysql_conn: mysql_recv:"
+		      " socket was closed ~p~n", [{RecvPid, _E}]),
 	    {error, "mysql_recv: socket was closed"}
     end;
-do_recv(LogFun, RecvPid, SeqNum) when is_function(LogFun); LogFun == undefined, is_integer(SeqNum) ->
+do_recv(LogFun, RecvPid, SeqNum) when is_function(LogFun);
+				      LogFun == undefined,
+				      is_integer(SeqNum) ->
     ResponseNum = SeqNum + 1,
     receive
         {mysql_recv, RecvPid, data, Packet, ResponseNum} ->
-            %%mysql:log(LogFun, debug, "mysql_conn: recv packet ~p: ~p", [ResponseNum, Packet]),
+            %%mysql:log(LogFun, debug, "mysql_conn: recv packet ~p:
+            %%~p", [ResponseNum, Packet]),
 	    {ok, Packet, ResponseNum};
 	{mysql_recv, RecvPid, closed, _E} ->
+	    mysql:log(LogFun, error, "mysql_conn: mysql_recv:"
+		      " socket was closed 2 ~p~n", [{RecvPid, _E}]),
 	    {error, "mysql_recv: socket was closed"}
         end.
 
@@ -273,11 +298,16 @@ init(Host, Port, User, Password, Database, LogFun, Parent) ->
 	{ok, RecvPid, Sock} ->
 	    case mysql_init(Sock, RecvPid, User, Password, LogFun) of
 		{ok, Version} ->
-		    case do_query(Sock, RecvPid, LogFun, "use " ++ Database, Version, [{result_type, binary}]) of
+		    case do_query(Sock, RecvPid, LogFun, "use " ++ Database,
+				  Version, [{result_type, binary}]) of
 			{error, MySQLRes} ->
-			    mysql:log(LogFun, error, "mysql_conn: Failed changing to database ~p : ~p",
-				      [Database, mysql:get_result_reason(MySQLRes)]),
-			    Parent ! {mysql_conn, self(), {error, failed_changing_database}};
+			    mysql:log(LogFun, error,
+				      "mysql_conn: Failed changing"
+				      " to database ~p : ~p",
+				      [Database,
+				       mysql:get_result_reason(MySQLRes)]),
+			    Parent ! {mysql_conn, self(),
+				      {error, failed_changing_database}};
 			%% ResultType: data | updated
 			{_ResultType, _MySQLRes} ->
 			    Parent ! {mysql_conn, self(), ok},
@@ -293,7 +323,8 @@ init(Host, Port, User, Password, Database, LogFun, Parent) ->
 		    Parent ! {mysql_conn, self(), {error, login_failed}}
 	    end;
 	E ->
-	    mysql:log(LogFun, error, "mysql_conn: Failed connecting to ~p:~p : ~p",
+	    mysql:log(LogFun, error, "mysql_conn: "
+		      "Failed connecting to ~p:~p : ~p",
 		      [Host, Port, E]),
 	    Parent ! {mysql_conn, self(), {error, connect_failed}}
     end.
@@ -309,31 +340,37 @@ loop(State) ->
     RecvPid = State#state.recv_pid,
     receive
 	{fetch, Ref, Query, GenSrvFrom, Options} ->
-	    %% GenSrvFrom is either a gen_server:call/3 From term(), or a pid if no
-	    %% gen_server was used to make the query
+	    %% GenSrvFrom is either a gen_server:call/3 From term(),
+	    %% or a pid if no gen_server was used to make the query
 	    Res = do_query(State, Query, Options),
 	    case is_pid(GenSrvFrom) of
 		true ->
 		    %% The query was not sent using gen_server mechanisms
 		    GenSrvFrom ! {fetch_result, Ref, self(), Res};
 		false ->
-		    %% the timer is canceled in wait_fetch_result/2, but we wait on that funtion only if the query 
-		    %% was not sent using the mysql gen_server. So we at least should try to cancel the timer here 
+		    %% the timer is canceled in wait_fetch_result/2, but we wait on that funtion only if the query
+		    %% was not sent using the mysql gen_server. So we at least should try to cancel the timer here
 		    %% (no warranty, the gen_server can still receive timeout messages)
-		    erlang:cancel_timer(Ref),  
+		    erlang:cancel_timer(Ref),
 		    gen_server:reply(GenSrvFrom, Res)
 	    end,
 	    loop(State);
 	{mysql_recv, RecvPid, data, Packet, Num} ->
-	    mysql:log(State#state.log_fun, error, "mysql_conn: Received MySQL data when not expecting any "
+	    mysql:log(State#state.log_fun, error, "mysql_conn: "
+		      "Received MySQL data when not expecting any "
 		      "(num ~p) - ignoring it", [Num]),
-	    mysql:log(State#state.log_fun, error, "mysql_conn: Unexpected MySQL data (num ~p) :~n~p",
+	    mysql:log(State#state.log_fun, error, "mysql_conn: "
+		      "Unexpected MySQL data (num ~p) :~n~p",
 		      [Num, Packet]),
 	    loop(State);
 	close ->
+	    mysql:log(State#state.log_fun, error, "mysql_conn: "
+		      "Received close signal, exiting.", []),
 	    close_connection(State);
         Unknown ->
-	    mysql:log(State#state.log_fun, error, "mysql_conn: Received unknown signal, exiting : ~p", [Unknown]),
+	    mysql:log(State#state.log_fun, error, "mysql_conn: "
+		      "Received unknown signal, exiting : ~p",
+		      [Unknown]),
 	    close_connection(State),
 	    error
     end.
@@ -356,21 +393,33 @@ mysql_init(Sock, RecvPid, User, Password, LogFun) ->
 	    AuthRes =
 		case Caps band ?SECURE_CONNECTION of
 		    ?SECURE_CONNECTION ->
-			mysql_auth:do_new_auth(Sock, RecvPid, InitSeqNum + 1, User, Password, Salt1, Salt2, LogFun);
+			mysql_auth:do_new_auth(Sock, RecvPid,
+					       InitSeqNum + 1,
+					       User, Password,
+					       Salt1, Salt2, LogFun);
 		    _ ->
-			mysql_auth:do_old_auth(Sock, RecvPid, InitSeqNum + 1, User, Password, Salt1, LogFun)
+			mysql_auth:do_old_auth(Sock, RecvPid,
+					       InitSeqNum + 1,
+					       User, Password,
+					       Salt1, LogFun)
 		end,
 	    case AuthRes of
 		{ok, <<0:8, _Rest/binary>>, _RecvNum} ->
 		    {ok,Version};
 		{ok, <<255:8, Code:16/little, Message/binary>>, _RecvNum} ->
-		    mysql:log(LogFun, error, "mysql_conn: init error ~p: ~p~n", [Code, binary_to_list(Message)]),
+		    mysql:log(LogFun, error, "mysql_conn: "
+			      "init error ~p: ~p~n",
+			      [Code, binary_to_list(Message)]),
 		    {error, binary_to_list(Message)};
 		{ok, RecvPacket, _RecvNum} ->
-		    mysql:log(LogFun, error, "mysql_conn: init unknown error ~p~n", [binary_to_list(RecvPacket)]),
+		    mysql:log(LogFun, error, "mysql_conn: "
+			      "init unknown error ~p~n",
+			      [binary_to_list(RecvPacket)]),
 		    {error, binary_to_list(RecvPacket)};
 		{error, Reason} ->
-		    mysql:log(LogFun, error, "mysql_conn: init failed receiving data : ~p~n", [Reason]),
+		    mysql:log(LogFun, error, "mysql_conn: "
+			      "init failed receiving data : ~p~n",
+			      [Reason]),
 		    {error, Reason}
 	    end;
 	{error, Reason} ->
@@ -386,7 +435,8 @@ greeting(Packet, LogFun) ->
     <<Caps:16/little, Rest5/binary>> = Rest4,
     <<ServerChar:16/binary-unit:8, Rest6/binary>> = Rest5,
     {Salt2, _Rest7} = asciz(Rest6),
-    mysql:log(LogFun, debug, "mysql_conn: greeting version ~p (protocol ~p) salt ~p caps ~p serverchar ~p salt2 ~p",
+    mysql:log(LogFun, debug, "mysql_conn: greeting version ~p (protocol ~p) "
+	      "salt ~p caps ~p serverchar ~p salt2 ~p",
 	      [Version, Protocol, Salt, Caps, ServerChar, Salt2]),
     {normalize_version(Version, LogFun), Salt, Salt2, Caps}.
 
@@ -431,7 +481,8 @@ get_query_response(LogFun, RecvPid, Version, Options) ->
 			{ok, Fields} ->
 			    case get_rows(Fieldcount, LogFun, RecvPid, ResultType, []) of
 				{ok, Rows} ->
-				    {data, #mysql_result{fieldinfo=Fields, rows=Rows}};
+				    {data, #mysql_result{fieldinfo=Fields,
+							 rows=Rows}};
 				{error, Reason} ->
 				    {error, #mysql_result{error=Reason}}
 			    end;
@@ -583,7 +634,8 @@ get_with_length(<<Length:8, Rest/binary>>) when Length < 251 ->
 
 close_connection(State) ->
     Result = gen_tcp:close(State#state.socket),
-    mysql:log(State#state.log_fun,  normal, "Closing connection ~p: ~p~n", [State#state.socket, Result]),
+    mysql:log(State#state.log_fun,  normal, "Closing connection ~p: ~p~n",
+	      [State#state.socket, Result]),
     Result.
 
 
@@ -626,9 +678,11 @@ do_query(Sock, RecvPid, LogFun, Query, Version, Options) when is_pid(RecvPid),
 %% Descrip.: Send a packet to the MySQL server.
 %% Returns : result of gen_tcp:send/2
 %%--------------------------------------------------------------------
-do_send(Sock, Packet, SeqNum, _LogFun) when is_binary(Packet), is_integer(SeqNum) ->
+do_send(Sock, Packet, SeqNum, _LogFun) when is_binary(Packet),
+					    is_integer(SeqNum) ->
     Data = <<(size(Packet)):24/little, SeqNum:8, Packet/binary>>,
-    %%mysql:log(LogFun, debug, "mysql_conn: send packet ~p: ~p", [SeqNum, Data]),
+    %%mysql:log(LogFun, debug, "mysql_conn: send packet ~p: ~p",
+    %%[SeqNum, Data]),
     gen_tcp:send(Sock, Data).
 
 %%--------------------------------------------------------------------
@@ -648,7 +702,8 @@ normalize_version([$5|_T], _LogFun) ->
     %% MySQL version 5.x protocol is compliant with MySQL 4.1.x:
     ?MYSQL_4_1;
 normalize_version(_Other, LogFun) ->
-    mysql:log(LogFun, error, "MySQL version not supported: MySQL Erlang module might not work correctly.~n"),
+    mysql:log(LogFun, error, "MySQL version not supported: MySQL Erlang "
+	      "module might not work correctly.~n"),
     %% Error, but trying the oldest protocol anyway:
     ?MYSQL_4_0.
 
