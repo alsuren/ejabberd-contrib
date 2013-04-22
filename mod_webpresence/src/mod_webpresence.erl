@@ -3,7 +3,7 @@
 %%% Author  : Igor Goryachev <igor@goryachev.org>, Badlop
 %%% Purpose : Allow user to show presence in the web
 %%% Created : 30 Apr 2006 by Igor Goryachev <igor@goryachev.org>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_webpresence.erl 1083 2010-06-01 18:32:55Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_webpresence).

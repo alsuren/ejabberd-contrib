@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : XML-RPC server
 %%% Created : 21 Aug 2007 by Badlop <badlop@ono.com>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_xmlrpc.erl 1061 2010-02-19 14:17:13Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_xmlrpc).

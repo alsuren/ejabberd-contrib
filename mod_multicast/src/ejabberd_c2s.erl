@@ -3,7 +3,7 @@
 %%% Author  : Alexey Shchepin <alexey@sevcom.net>
 %%% Purpose : Serve C2S connection
 %%% Created : 16 Nov 2002 by Alexey Shchepin <alexey@sevcom.net>
-%%% Id      : $Id$
+%%% Id      : $Id: ejabberd_c2s.erl 952 2009-05-06 17:29:39Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_c2s).

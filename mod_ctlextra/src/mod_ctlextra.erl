@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Adds more commands to ejabberd_ctl
 %%% Created : 30 Nov 2006 by Badlop <badlop@ono.com>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_ctlextra.erl 1020 2009-08-30 10:13:34Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_ctlextra).

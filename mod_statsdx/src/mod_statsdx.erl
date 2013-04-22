@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Calculates and gathers statistics actively
 %%% Created :
-%%% Id      : $Id$
+%%% Id      : $Id: mod_statsdx.erl 1118 2011-07-11 17:16:30Z badlop $
 %%%----------------------------------------------------------------------
 
 %%%% Definitions

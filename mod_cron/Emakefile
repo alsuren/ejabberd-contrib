@@ -1,2 +1,2 @@
-{'../../ejabberd-dev/trunk/src/gen_mod', [{outdir, "../../ejabberd-dev/trunk/ebin"},{i,"../../ejabberd-dev/trunk/include"}]}.
-{'src/mod_cron',     [{outdir, "ebin"},{i,"../../ejabberd-dev/trunk/include"}]}.
+{'../ejabberd-dev/src/gen_mod', [{outdir, "../ejabberd-dev/ebin"},{i,"../ejabberd-dev/include"}]}.
+{'src/mod_cron',     [{outdir, "ebin"},{i,"../ejabberd-dev/include"}]}.

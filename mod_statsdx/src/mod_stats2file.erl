@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Generates files with all kind of statistics
 %%% Created :
-%%% Id      : $Id$
+%%% Id      : $Id: mod_stats2file.erl 440 2007-12-06 22:36:21Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_stats2file).

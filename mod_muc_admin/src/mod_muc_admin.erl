@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Tools for additional MUC administration
 %%% Created : 8 Sep 2007 by Badlop <badlop@ono.com>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_muc_admin.erl 1133 2012-10-17 22:13:06Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_muc_admin).

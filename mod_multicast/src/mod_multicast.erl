@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Extended Stanza Addressing (XEP-0033) support
 %%% Created : 29 May 2007 by Badlop <badlop@ono.com>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_multicast.erl 440 2007-12-06 22:36:21Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(mod_multicast).
@@ -67,7 +67,7 @@
 
 %% All the elements are of type value()
 
--define(VERSION_MULTICAST, "$Revision$ ").
+-define(VERSION_MULTICAST, "$Revision: 440 $ ").
 -define(PROCNAME, ejabberd_mod_multicast).
 
 %% TODO: move this line to jlib.hrl

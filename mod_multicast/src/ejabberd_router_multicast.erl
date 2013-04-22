@@ -3,7 +3,7 @@
 %%% Author  : Badlop <badlop@ono.com>
 %%% Purpose : Multicast router
 %%% Created : 11 Aug 2007 by Badlop <badlop@ono.com>
-%%% Id      : $Id$
+%%% Id      : $Id: ejabberd_router_multicast.erl 440 2007-12-06 22:36:21Z badlop $
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_router_multicast).

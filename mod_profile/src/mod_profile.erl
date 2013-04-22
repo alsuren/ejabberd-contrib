@@ -3,7 +3,7 @@
 %%% Author  : Magnus Henoch <henoch@dtek.chalmers.se>
 %%% Purpose : Store profile stanzas in Mnesia table (XEP-0154 0.5 IQ semantics)
 %%% Created : 22 Oct 2006 by Magnus Henoch <henoch@dtek.chalmers.se>
-%%% Id      : $Id$
+%%% Id      : $Id: mod_profile.erl 1039 2009-11-24 22:47:40Z badlop $
 %%%----------------------------------------------------------------------
 
 %%%% Documentation
