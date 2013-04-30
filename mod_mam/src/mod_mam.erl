@@ -6,24 +6,25 @@
          on_send_packet/3,
          on_receive_packet/4,
          on_remove_user/2]).
--include_lib("ejabberd/include/ejabberd.hrl").
--include_lib("ejabberd/include/jlib.hrl").
--include_lib("exml/include/exml.hrl").
+-include("ejabberd.hrl").
+-include("jlib.hrl").
+-include("exmpp_xml.hrl").
+
 
 %% ----------------------------------------------------------------------
 %% Datetime types
--type iso8601_datetime_binary() :: binary().
+-type iso8601_datetime_list() :: list().
 %% Seconds from 01.01.1970
 -type unix_timestamp() :: non_neg_integer().
 
 %% ----------------------------------------------------------------------
 %% XMPP types
--type server_hostname() :: binary().
--type literal_username() :: binary().
--type escaped_username() :: binary().
--type escaped_jid() :: binary().
--type literal_jid() :: binary().
--type escaped_resource() :: binary().
+-type server_hostname() :: list().
+-type literal_username() :: list().
+-type escaped_username() :: list().
+-type escaped_jid() :: list().
+-type literal_jid() :: list().
+-type escaped_resource() :: list().
 -type elem() :: #xmlelement{}.
 -type jid() :: tuple().
 
@@ -31,17 +32,13 @@
 %% ----------------------------------------------------------------------
 %% Other types
 -type filter() :: iolist().
--type escaped_message_id() :: binary().
--type archive_behaviour_bin() :: binary(). % <<"roster">> | <<"always">> | <<"newer">>.
+-type escaped_message_id() :: list().
+-type archive_behaviour_bin() :: list(). % <<"roster">> | <<"always">> | <<"newer">>.
 
 %% ----------------------------------------------------------------------
 %% Constants
 
-mam_ns_string() -> "urn:xmpp:mam:tmp".
-
-mam_ns_binary() -> <<"urn:xmpp:mam:tmp">>.
-
-rsm_ns_binary() -> <<"http://jabber.org/protocol/rsm">>.
+-define(NS_MAM, "urn:xmpp:mam:tmp").
 
 default_result_limit() -> 50.
 
@@ -64,9 +61,8 @@ decode_behaviour(<<"N">>) -> <<"newer">>.
 start(Host, Opts) ->
     ?INFO_MSG("mod_mam starting", []),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue), %% Type
-    mod_disco:register_feature(Host, mam_ns_binary()),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, mam_ns_binary(),
-                                  ?MODULE, process_mam_iq, IQDisc),
+    mod_disco:register_feature(Host, ?NS_MAM),
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_MAM, ?MODULE, process_mam_iq, IQDisc),
     ejabberd_hooks:add(user_send_packet, Host, ?MODULE, on_send_packet, 90),
     ejabberd_hooks:add(user_receive_packet, Host, ?MODULE, on_receive_packet, 90),
     ejabberd_hooks:add(remove_user, Host, ?MODULE, on_remove_user, 50),
@@ -74,7 +70,7 @@ start(Host, Opts) ->
 
 stop(Host) ->
     ?INFO_MSG("mod_mam stopping", []),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, mam_ns_string()),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_MAM),
     ejabberd_hooks:delete(user_send_packet, Host, ?MODULE, on_send_packet, 90),
     ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE, on_receive_packet, 90),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE, on_remove_user, 50),
@@ -91,7 +87,7 @@ stop(Host) ->
 process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                _To,
                IQ=#iq{type = set,
-                      sub_el = PrefsEl = #xmlelement{name = <<"prefs">>}}) ->
+                      sub_el = PrefsEl = #xmlelement{name = "prefs"}}) ->
     ?INFO_MSG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
     {DefaultMode, AlwaysJIDs, NewerJIDs} = parse_prefs(PrefsEl),
@@ -104,10 +100,10 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
 process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                _To,
                IQ=#iq{type = get,
-                      sub_el = PrefsEl = #xmlelement{name = <<"prefs">>}}) ->
+                      sub_el = #xmlelement{name = "prefs"}}) ->
     ?INFO_MSG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
-    {DefaultMode, AlwaysJIDs, NewerJIDs} = get_prefs(LServer, LUser, <<"always">>),
+    {DefaultMode, AlwaysJIDs, NewerJIDs} = get_prefs(LServer, LUser, "always"),
     ?INFO_MSG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
               [DefaultMode, AlwaysJIDs, NewerJIDs]),
     ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs),
@@ -116,39 +112,39 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
 process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                To,
                IQ=#iq{type = get,
-                      sub_el = QueryEl = #xmlelement{name = <<"query">>}}) ->
+                      sub_el = QueryEl = #xmlelement{name = "query"}}) ->
     ?INFO_MSG("Handling mam IQ~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, IQ]),
-    QueryID = xml:get_tag_attr_s(<<"queryid">>, QueryEl),
+    QueryID = xml:get_tag_attr_s("queryid", QueryEl),
     %% Filtering by date.
     %% Start :: integer() | undefined
-    Start = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, <<"start">>}, cdata])),
-    End   = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, <<"end">>}, cdata])),
+    Start = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, "start"}, cdata])),
+    End   = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, "end"}, cdata])),
     RSM   = jlib:rsm_decode(QueryEl),
     %% #rsm_in{
     %%    max = non_neg_integer() | undefined,
     %%    direction = before | aft | undefined,
     %%    %% id is empty, if cdata does not exists.
-    %%    id = binary() | undefined,
+    %%    id = list() | undefined,
     %%    index = non_neg_integer() | undefined}
     %% Filtering by contact.
-    With  = xml:get_path_s(QueryEl, [{elem, <<"with">>}, cdata]),
+    With  = xml:get_path_s(QueryEl, [{elem, "with"}, cdata]),
     {WithSJID, WithSResource} =
     case With of
-        <<>> -> {undefined, undefined};
+        "" -> {undefined, undefined};
         _    ->
-            WithJID = #jid{lresource = WithLResource} = jlib:binary_to_jid(With),
+            WithJID = #jid{lresource = WithLResource} = jlib:string_to_jid(With),
             WithBareJID = jlib:jid_remove_resource(WithJID),
-            {ejabberd_odbc:escape(jlib:jid_to_binary(WithBareJID)),
-             case WithLResource of <<>> -> undefined;
+            {ejabberd_odbc:escape(jlib:jid_to_string(WithBareJID)),
+             case WithLResource of "" -> undefined;
                   _ -> ejabberd_odbc:escape(WithLResource) end}
     end,
     %% This element's name is "limit".
     %% But it must be "max" according XEP-0313.
     PageSize = min(max_result_limit(),
                    maybe_integer(get_one_of_path_bin(QueryEl, [
-                    [{elem, <<"set">>}, {elem, <<"max">>}, cdata],
-                    [{elem, <<"set">>}, {elem, <<"limit">>}, cdata]
+                    [{elem, "set"}, {elem, "max"}, cdata],
+                    [{elem, "set"}, {elem, "limit"}, cdata]
                    ]), default_result_limit())),
 
 
@@ -221,8 +217,8 @@ handle_package(Dir,
             %% Convert `#jid{}' to prepared `{S,U,R}'
             LRJID = jlib:jid_tolower(RemoteJID),
             BareLRJID = jlib:jid_remove_resource(LRJID),
-            SRJID = ejabberd_odbc:escape(jlib:jid_to_binary(LRJID)),
-            BareSRJID = ejabberd_odbc:escape(jlib:jid_to_binary(BareLRJID)),
+            SRJID = ejabberd_odbc:escape(jlib:jid_to_string(LRJID)),
+            BareSRJID = ejabberd_odbc:escape(jlib:jid_to_string(BareLRJID)),
             IsInteresting =
             case behaviour(LServer, SUser, SRJID, BareSRJID) of
                 always -> true;
@@ -236,7 +232,7 @@ handle_package(Dir,
                     SData = ejabberd_odbc:escape(term_to_binary(Packet)),
                     SDir = encode_direction(Dir),
                     FromLJID = jlib:jid_tolower(FromJID),
-                    FromSJID = ejabberd_odbc:escape(jlib:jid_to_binary(FromLJID)),
+                    FromSJID = ejabberd_odbc:escape(jlib:jid_to_string(FromLJID)),
                     archive_message(LServer, SUser, BareSRJID, SRResource, SDir,
                                     FromSJID, SData);
                 false -> ok
@@ -248,13 +244,13 @@ handle_package(Dir,
 %% @doc Check, that the stanza is a message with body.
 %% Servers SHOULD NOT archive messages that do not have a <body/> child tag.
 -spec is_complete_message(Packet::#xmlelement{}) -> boolean().
-is_complete_message(Packet=#xmlelement{name = <<"message">>}) ->
-    case xml:get_tag_attr_s(<<"type">>, Packet) of
-    Type when Type == <<"">>;
-              Type == <<"normal">>;
-              Type == <<"chat">>;
-              Type == <<"groupchat">> ->
-        case xml:get_subtag(Packet, <<"body">>) of
+is_complete_message(Packet=#xmlelement{name = "message"}) ->
+    case xml:get_tag_attr_s("type", Packet) of
+    Type when Type == "";
+              Type == "normal";
+              Type == "chat";
+              Type == "groupchat" ->
+        case xml:get_subtag(Packet, "body") of
             false -> false;
             _     -> true
         end;
@@ -265,101 +261,101 @@ is_complete_message(_) -> false.
 
 
 %% @doc Form `<forwarded/>' element, according to the XEP.
--spec wrap_message(Packet::elem(), QueryID::binary(),
+-spec wrap_message(Packet::elem(), QueryID::list(),
                    MessageUID::term(), DateTime::calendar:datetime(), FromJID::jid()) ->
         Wrapper::elem().
 wrap_message(Packet, QueryID, MessageUID, DateTime, FromJID) ->
     #xmlelement{
-        name = <<"message">>,
+        name = "message",
         attrs = [],
         children = [result(QueryID, MessageUID), forwarded(Packet, DateTime, FromJID)]}.
 
 -spec forwarded(elem(), calendar:datetime(), jid()) -> elem().
 forwarded(Packet, DateTime, FromJID) ->
     #xmlelement{
-        name = <<"forwarded">>,
-        attrs = [{<<"xmlns">>, <<"urn:xmpp:forward:0">>}],
+        name = "forwarded",
+        attrs = [{"xmlns", "urn:xmpp:forward:0"}],
         children = [delay(DateTime, FromJID), Packet]}.
 
 -spec delay(calendar:datetime(), jid()) -> elem().
 delay(DateTime, FromJID) ->
-    jlib:timestamp_to_xml(DateTime, utc, FromJID, <<>>).
+    jlib:timestamp_to_xml(DateTime, utc, FromJID, "").
 
 
 %% @doc This element will be added in each forwarded message.
 result(QueryID, MessageUID) ->
     %% <result xmlns='urn:xmpp:mam:tmp' queryid='f27' id='28482-98726-73623' />
     #xmlelement{
-        name = <<"result">>,
-        attrs = [{<<"xmlns">>, mam_ns_binary()},
-                 {<<"queryid">>, QueryID},
-                 {<<"id">>, MessageUID}],
+        name = "result",
+        attrs = [{"xmlns", ?NS_MAM},
+                 {"queryid", QueryID},
+                 {"id", MessageUID}],
         children = []}.
 
 
 %% @doc This element will be added into "iq/query".
 -spec result_set(FirstId, LastId, FirstIndexI, CountI) -> elem() when
-    FirstId :: binary() | undefined,
-    LastId  :: binary() | undefined,
+    FirstId :: list() | undefined,
+    LastId  :: list() | undefined,
     FirstIndexI :: non_neg_integer() | undefined,
     CountI      :: non_neg_integer().
 result_set(FirstId, LastId, FirstIndexI, CountI) ->
     %% <result xmlns='urn:xmpp:mam:tmp' queryid='f27' id='28482-98726-73623' />
-    FirstEl = [#xmlelement{name = <<"first">>,
-                           attrs = [{<<"index">>, integer_to_list(FirstIndexI)}],
-                           children = [#xmlcdata{content = FirstId}]
+    FirstEl = [#xmlelement{name = "first",
+                           attrs = [{"index", integer_to_list(FirstIndexI)}],
+                           children = [#xmlcdata{cdata = FirstId}]
                           }
                || FirstId =/= undefined],
-    LastEl = [#xmlelement{name = <<"last">>,
+    LastEl = [#xmlelement{name = "last",
                            attrs = [],
-                           children = [#xmlcdata{content = LastId}]
+                           children = [#xmlcdata{cdata = LastId}]
                           }
                || LastId =/= undefined],
     CountEl = #xmlelement{
-            name = <<"count">>,
-            children = [#xmlcdata{content = integer_to_list(CountI)}]},
+            name = "count",
+            children = [#xmlcdata{cdata = integer_to_list(CountI)}]},
      #xmlelement{
-        name = <<"set">>,
-        attrs = [{<<"xmlns">>, rsm_ns_binary()}],
+        name = "set",
+        attrs = [{"xmlns", ?NS_RSM}],
         children = FirstEl ++ LastEl ++ [CountEl]}.
 
 result_query(SetEl) ->
      #xmlelement{
-        name = <<"query">>,
-        attrs = [{<<"xmlns">>, mam_ns_binary()}],
+        name = "query",
+        attrs = [{"xmlns", ?NS_MAM}],
         children = [SetEl]}.
 
 -spec result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs) -> ResultPrefsEl when
-    DefaultMode :: binary(),
-    AlwaysJIDs  :: [binary()],
-    NewerJIDs   :: [binary()],
+    DefaultMode :: list(),
+    AlwaysJIDs  :: [list()],
+    NewerJIDs   :: [list()],
     ResultPrefsEl :: elem().
 result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs) ->
-    AlwaysEl = #xmlelement{name = <<"always">>,
+    AlwaysEl = #xmlelement{name = "always",
                            children = encode_jids(AlwaysJIDs)},
-    NewerEl  = #xmlelement{name = <<"newer">>,
+    NewerEl  = #xmlelement{name = "newer",
                            children = encode_jids(NewerJIDs)},
     #xmlelement{
-       name = <<"prefs">>,
-       attrs = [{<<"xmlns">>,mam_ns_binary()}, {<<"default">>, DefaultMode}],
+       name = "prefs",
+       attrs = [{"xmlns",?NS_MAM}, {"default", DefaultMode}],
        children = [AlwaysEl, NewerEl]
     }.
 
 encode_jids(JIDs) ->
-    [#xmlelement{name = <<"jid">>,
-                 children = [#xmlcdata{content = JID}]}
+    [#xmlelement{name = "jid",
+                 children = [#xmlcdata{cdata = JID}]}
      || JID <- JIDs].
 
 
 -spec parse_prefs(PrefsEl) -> {DefaultMode, AlwaysJIDs, NewerJIDs} when
     PrefsEl :: elem(),
-    DefaultMode :: binary(),
-    AlwaysJIDs  :: [binary()],
-    NewerJIDs   :: [binary()].
-parse_prefs(El=#xmlelement{name = <<"prefs">>, attrs = Attrs}) ->
-    {value, Default} = xml:get_attr(<<"default">>, Attrs),
-    AlwaysJIDs = parse_jid_list(El, <<"always">>),
-    NewerJIDs  = parse_jid_list(El, <<"newer">>),
+    DefaultMode :: list(),
+    AlwaysJIDs  :: [list()],
+    NewerJIDs   :: [list()].
+parse_prefs(El=#xmlelement{name = "prefs", attrs = Attrs}) ->
+    {value, Default} = xml:get_attr("default", Attrs),
+    AlwaysJIDs = parse_jid_list(El, "always"),
+    NewerJIDs  = parse_jid_list(El, "newer"),
     {Default, AlwaysJIDs, NewerJIDs}.
 
 parse_jid_list(El, Name) ->
@@ -456,11 +452,11 @@ get_prefs(LServer, LUser, GlobalDefaultMode) ->
        "WHERE local_username='", SUser, "'"]),
     decode_prefs_rows(Rows, GlobalDefaultMode, [], []).
 
-decode_prefs_rows([{<<>>, Behavour}|Rows], _DefaultMode, AlwaysJIDs, NewerJIDs) ->
+decode_prefs_rows([{"", Behavour}|Rows], _DefaultMode, AlwaysJIDs, NewerJIDs) ->
     decode_prefs_rows(Rows, decode_behaviour(Behavour), AlwaysJIDs, NewerJIDs);
-decode_prefs_rows([{JID, <<"A">>}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
+decode_prefs_rows([{JID, "A"}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
     decode_prefs_rows(Rows, DefaultMode, [JID|AlwaysJIDs], NewerJIDs);
-decode_prefs_rows([{JID, <<"N">>}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
+decode_prefs_rows([{JID, "N"}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
     decode_prefs_rows(Rows, DefaultMode, AlwaysJIDs, [JID|NewerJIDs]);
 decode_prefs_rows([], DefaultMode, AlwaysJIDs, NewerJIDs) ->
     {DefaultMode, AlwaysJIDs, NewerJIDs}.
@@ -495,18 +491,18 @@ remove_user(LServer, SUser) ->
     ?INFO_MSG("remove_user query returns ~p and ~p", [Result1, Result2]),
     ok.
 
-message_row_to_xml({BUID,BSeconds,BFromJID,BPacket}, QueryID) ->
-    Packet = binary_to_term(BPacket),
-    FromJID = jlib:binary_to_jid(BFromJID),
-    Seconds  = list_to_integer(binary_to_list(BSeconds)),
+message_row_to_xml({UID,LSeconds,LFromJID,LPacket}, QueryID) ->
+    Packet = binary_to_term(list_to_binary(LPacket)),
+    FromJID = jlib:string_to_jid(LFromJID),
+    Seconds  = list_to_integer(LSeconds),
     DateTime = calendar:now_to_universal_time(seconds_to_now(Seconds)),
-    wrap_message(Packet, QueryID, BUID, DateTime, FromJID).
+    wrap_message(Packet, QueryID, UID, DateTime, FromJID).
 
 message_row_to_id({BUID,_,_,_}) ->
     BUID.
 
 %% Each record is a tuple of form 
-%% `{<<"3">>,<<"1366312523">>,<<"bob@localhost">>,<<"res1">>,<<binary>>}'.
+%% `{"3","1366312523","bob@localhost","res1",string}'.
 %% Columns are `["id","added_at","from_jid","message"]'.
 -spec extract_messages(LServer, Filter, IOffset, IMax) ->
     [Record] when
@@ -551,14 +547,14 @@ calc_offset(_LS, _F, _PS, _TC, #rsm_in{direction = undefined, index = Index})
     when is_integer(Index) ->
     Index;
 %% Requesting the Last Page in a Result Set
-calc_offset(_LS, _F, PS, TC, #rsm_in{direction = before, id = <<>>}) ->
+calc_offset(_LS, _F, PS, TC, #rsm_in{direction = before, id = ""}) ->
     max(0, TC - PS);
 calc_offset(LServer, Filter, PageSize, _TC, #rsm_in{direction = before, id = ID})
-    when is_binary(ID) ->
+    when is_list(ID) ->
     SID = ejabberd_odbc:escape(ID),
     max(0, calc_before(LServer, Filter, SID) - PageSize);
 calc_offset(LServer, Filter, _PS, _TC, #rsm_in{direction = aft, id = ID})
-    when is_binary(ID), byte_size(ID) > 0 ->
+    when is_list(ID), byte_size(ID) > 0 ->
     SID = ejabberd_odbc:escape(ID),
     calc_index(LServer, Filter, SID);
 calc_offset(_LS, _F, _PS, _TC, _RSM) ->
@@ -575,11 +571,11 @@ calc_offset(_LS, _F, _PS, _TC, _RSM) ->
     SUID     :: escaped_message_id(),
     Count    :: non_neg_integer().
 calc_index(LServer, Filter, SUID) ->
-    {selected, _ColumnNames, [{BIndex}]} =
+    {selected, _ColumnNames, [{Index}]} =
     ejabberd_odbc:sql_query(
       LServer,
       ["SELECT COUNT(*) FROM mam_message ", Filter, " AND id <= '", SUID, "'"]),
-    list_to_integer(binary_to_list(BIndex)).
+    list_to_integer(Index).
 
 %% @doc Count of elements in RSet before the passed element.
 %% The element with the passed UID can be already deleted.
@@ -591,11 +587,11 @@ calc_index(LServer, Filter, SUID) ->
     SUID     :: escaped_message_id(),
     Count    :: non_neg_integer().
 calc_before(LServer, Filter, SUID) ->
-    {selected, _ColumnNames, [{BIndex}]} =
+    {selected, _ColumnNames, [{Index}]} =
     ejabberd_odbc:sql_query(
       LServer,
       ["SELECT COUNT(*) FROM mam_message ", Filter, " AND id < '", SUID, "'"]),
-    list_to_integer(binary_to_list(BIndex)).
+    list_to_integer(Index).
 
 
 %% @doc Get the total result set size.
@@ -606,11 +602,11 @@ calc_before(LServer, Filter, SUID) ->
     Filter   :: filter(),
     Count    :: non_neg_integer().
 calc_count(LServer, Filter) ->
-    {selected, _ColumnNames, [{BCount}]} =
+    {selected, _ColumnNames, [{Count}]} =
     ejabberd_odbc:sql_query(
       LServer,
       ["SELECT COUNT(*) FROM mam_message ", Filter]),
-    list_to_integer(binary_to_list(BCount)).
+    list_to_integer(Count).
 
 
 -spec prepare_filter(SUser, IStart, IEnd, WithSJID, WithSResource) -> filter()
@@ -641,11 +637,12 @@ prepare_filter(SUser, IStart, IEnd, WithSJID, WithSResource) ->
 
 
 %% "maybe" means, that the function may return 'undefined'.
--spec maybe_unix_timestamp(iso8601_datetime_binary()) -> unix_timestamp();
+-spec maybe_unix_timestamp(iso8601_datetime_list()) -> unix_timestamp();
                           (<<>>) -> undefined.
+maybe_unix_timestamp("") -> undefined;
 maybe_unix_timestamp(<<>>) -> undefined;
 maybe_unix_timestamp(ISODateTime) -> 
-    case iso8601_datetime_binary_to_timestamp(ISODateTime) of
+    case iso8601_datetime_list_to_timestamp(ISODateTime) of
         undefined -> undefined;
         Stamp -> now_to_seconds(Stamp)
     end.
@@ -663,22 +660,25 @@ seconds_to_now(Seconds) when is_integer(Seconds) ->
     {Seconds div 1000000, Seconds rem 1000000, 0}.
 
 %% @doc Returns time in `now()' format.
--spec iso8601_datetime_binary_to_timestamp(iso8601_datetime_binary()) ->
+-spec iso8601_datetime_list_to_timestamp(iso8601_datetime_list()) ->
     erlang:timestamp().
-iso8601_datetime_binary_to_timestamp(DateTime) when is_binary(DateTime) ->
-    jlib:datetime_string_to_timestamp(binary_to_list(DateTime)).
+iso8601_datetime_list_to_timestamp(DateTime) when is_list(DateTime) ->
+    jlib:datetime_string_to_timestamp(DateTime).
 
 
--spec maybe_integer(binary()) -> integer() | undefined.
+-spec maybe_integer(binary() | list()) -> integer() | undefined.
 maybe_integer(Bin) -> maybe_integer(Bin, undefined).
 
+maybe_integer("", Def) -> Def;
 maybe_integer(<<>>, Def) -> Def;
 maybe_integer(Bin, _Def) when is_binary(Bin) ->
-    list_to_integer(binary_to_list(Bin)).
+    list_to_integer(binary_to_list(Bin));
+maybe_integer(Bin, _Def) when is_list(Bin) ->
+    list_to_integer(Bin).
 
 
 get_one_of_path_bin(Elem, List) ->
-    get_one_of_path(Elem, List, <<>>).
+    get_one_of_path(Elem, List, "").
 
 get_one_of_path(Elem, [H|T], Def) ->
     case xml:get_path_s(Elem, H) of
