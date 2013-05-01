@@ -19,35 +19,91 @@
 
 -- Needs MySQL (at least 4.0.x) with innodb back-end
 
-CREATE TABLE mam_message(
-  -- Message UID
-  -- A server-assigned UID that MUST be unique within the archive.
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  local_username varchar(250) NOT NULL,
-  from_jid varchar(250) NOT NULL,
-  -- The remote JID that the stanza is to (for an outgoing message) or from (for an incoming message).
-  remote_bare_jid varchar(250) NOT NULL,
-  remote_resource varchar(250) NOT NULL,
-  -- I - incoming, remote_jid is a value from From.
-  -- O - outgoing, remote_jid is a value from To.
-  direction character(1) NOT NULL,
-  -- A timestamp of when the message was sent (for an outgoing message) or received (for an incoming message).
-  -- added_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  added_at int NOT NULL,
-  -- Term-encoded message
-  message blob NOT NULL
-);
-CREATE INDEX i_mam_message_username_added_at USING BTREE ON mam_message(local_username, added_at);
-CREATE INDEX i_mam_message_username_jid_added_at USING BTREE ON mam_message(local_username, remote_bare_jid, added_at);
+CREATE  TABLE IF NOT EXISTS `ejabberd`.`mam_username` (
+  `ID` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `STRING` VARCHAR(50) NOT NULL ,
+  PRIMARY KEY (`ID`) ,
+  UNIQUE INDEX `string_UNIQUE` (`STRING` ASC) )
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_general_ci
+COMMENT = 'general_ci, means the username strings are treated as case insensitive in sorts.';
 
 
-CREATE TABLE mam_config(
-  local_username varchar(250) NOT NULL,
-  -- If empty, than it is a default behaviour.
-  remote_jid varchar(250) NOT NULL,
-  -- A - always archive;
-  -- N - newer archive;
-  -- R - roster (only for remote_jid == "")
-  behaviour character(1) NOT NULL
-);
-CREATE INDEX i_mam_config USING HASH ON mam_config(local_username, remote_jid);
+CREATE  TABLE IF NOT EXISTS `ejabberd`.`mam_config` (
+  `LOCAL_USERNAME` BIGINT UNSIGNED NOT NULL ,
+  `REMOTE_JID` BIGINT UNSIGNED NOT NULL ,
+  `BEHAVIOUR` ENUM('always_archive', 'never_archive', 'roster') NOT NULL ,
+  INDEX `fk_mam_config_1_idx` (`LOCAL_USERNAME` ASC) ,
+  INDEX `fk_mam_config_2_idx` (`REMOTE_JID` ASC) ,
+  CONSTRAINT `fk_mam_config_1`
+    FOREIGN KEY (`LOCAL_USERNAME` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_mam_config_2`
+    FOREIGN KEY (`REMOTE_JID` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_general_ci;
+
+USE `mydb`;
+DELIMITER $$
+
+CREATE TRIGGER `mam_config_BINS` BEFORE INSERT ON mam_config FOR EACH ROW
+BEGIN
+  IF NOT (( NEW.BEHAVIOUR='roster' AND NEW.REMOTE_JID IS NULL ) OR NEW.BEHAVIOUR != 'roster') THEN
+    SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'REMOTE_JID must be NULL on roster messages!';
+  END IF;
+END$$
+
+CREATE TRIGGER `mam_config_BUPD` BEFORE UPDATE ON mam_config FOR EACH ROW
+BEGIN
+  IF NOT (( NEW.BEHAVIOUR='roster' AND NEW.REMOTE_JID IS NULL ) OR NEW.BEHAVIOUR != 'roster') THEN
+    SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'REMOTE_JID must be NULL on roster messages!';
+  END IF;
+END
+
+DELIMITER ;
+
+
+CREATE  TABLE IF NOT EXISTS `ejabberd`.`mam_message` (
+  `ID` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `LOCAL_USERNAME` BIGINT UNSIGNED NOT NULL ,
+  `FROM_JID` BIGINT UNSIGNED NOT NULL ,
+  `REMOTE_BARE_JID` BIGINT UNSIGNED NOT NULL ,
+  `REMOTE_RESOURCE` BIGINT UNSIGNED NOT NULL ,
+  `DIRECTION` ENUM('incoming', 'outgoing') NOT NULL ,
+  `ADDED_AT` TIMESTAMP NOT NULL ,
+  `MESSAGE` BLOB NOT NULL ,
+  PRIMARY KEY (`ID`) ,
+  INDEX `fk_mam_message_2_idx` (`FROM_JID` ASC) ,
+  INDEX `fk_mam_message_1_idx` (`LOCAL_USERNAME` ASC) ,
+  INDEX `fk_mam_message_3_idx` (`REMOTE_BARE_JID` ASC) ,
+  INDEX `fk_mam_message_4_idx` (`REMOTE_RESOURCE` ASC) ,
+  CONSTRAINT `fk_mam_message_1`
+    FOREIGN KEY (`LOCAL_USERNAME` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_mam_message_2`
+    FOREIGN KEY (`FROM_JID` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_mam_message_3`
+    FOREIGN KEY (`REMOTE_BARE_JID` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_mam_message_4`
+    FOREIGN KEY (`REMOTE_RESOURCE` )
+    REFERENCES `mydb`.`mam_username` (`ID` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_general_ci;
