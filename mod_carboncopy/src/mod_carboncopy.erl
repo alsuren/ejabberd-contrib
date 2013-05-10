@@ -48,6 +48,7 @@
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
+-include("exmpp_xml.hrl").
 -define(PROCNAME, ?MODULE).
 -define(TABLE, carboncopy).
 
