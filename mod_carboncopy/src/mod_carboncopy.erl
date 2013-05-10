@@ -42,9 +42,9 @@
          remove_connection/4,
          is_carbon_copy/1]).
 
--define(NS_CC_2, <<"urn:xmpp:carbons:2">>).
--define(NS_CC_1, <<"urn:xmpp:carbons:1">>).
--define(NS_FORWARD, <<"urn:xmpp:forward:0">>).
+-define(NS_CC_2, "urn:xmpp:carbons:2").
+-define(NS_CC_1, "urn:xmpp:carbons:1").
+-define(NS_FORWARD, "urn:xmpp:forward:0").
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
@@ -58,9 +58,9 @@
                     version :: binary() }).
 
 is_carbon_copy(Packet) ->
-    case xml:get_subtag(Packet, <<"sent">>) of
-        #xmlel{name= <<"sent">>, attrs = AAttrs}  ->
-            case xml:get_attr_s(<<"xmlns">>, AAttrs) of
+    case xml:get_subtag(Packet, "sent") of
+        #xmlel{name= "sent", attrs = AAttrs}  ->
+            case xml:get_attr_s("xmlns", AAttrs) of
                 ?NS_CC_2 -> true;
                 ?NS_CC_1 -> true;
                 _ -> false
@@ -109,10 +109,10 @@ iq_handler(From, _To,  #iq{type=set, sub_el = #xmlel{name = Operation, children 
     ?INFO_MSG("carbons IQ received: ~p", [IQ]),
     {U, S, R} = jlib:jid_tolower(From),
     Result = case Operation of
-        <<"enable">>->
+        "enable"->
             ?INFO_MSG("carbons enabled for user ~s@~s/~s", [U,S,R]),
             enable(S,U,R,CC);
-        <<"disable">>->
+        "disable"->
             ?INFO_MSG("carbons disabled for user ~s@~s/~s", [U,S,R]),
             disable(S, U, R)
     end,
@@ -134,7 +134,7 @@ user_send_packet(From, _To, Packet) ->
 %% Only make carbon copies if the original destination was not a bare jid.
 %% If the original destination was a bare jid, the message is going to be delivered to all
 %% connected resources anyway. Avoid duplicate delivery. "XEP-0280 : 3.5 Receiving Messages"
-user_receive_packet(JID, _From, #jid{resource=Resource} = _To, Packet) when Resource /= <<>> ->
+user_receive_packet(JID, _From, #jid{resource=Resource} = _To, Packet) when Resource /= "" ->
     check_and_forward(JID, Packet, received);
 user_receive_packet(_JID, _From, _To, _Packet) ->
     ok.
@@ -144,12 +144,12 @@ user_receive_packet(_JID, _From, _To, _Packet) ->
 %    - registered to the user_send_packet hook, to be called only once even for multicast
 %    - do not support "private" message mode, and do not modify the original packet in any way
 %    - we also replicate "read" notifications
-check_and_forward(JID, #xmlel{name = <<"message">>, attrs = Attrs} = Packet, Direction)->
-    case xml:get_attr_s(<<"type">>, Attrs) of
-        <<"chat">> ->
-            case xml:get_subtag(Packet, <<"private">>) of
+check_and_forward(JID, #xmlel{name = "message", attrs = Attrs} = Packet, Direction)->
+    case xml:get_attr_s("type", Attrs) of
+        "chat" ->
+            case xml:get_subtag(Packet, "private") of
                 false ->
-                    case xml:get_subtag(Packet,<<"forwarded">>) of
+                    case xml:get_subtag(Packet,"forwarded") of
                         false ->
                             send_copies(JID, Packet, Direction);
                         _ ->
@@ -184,7 +184,7 @@ send_copies(JID, Packet, Direction)->
     lists:map(fun({Dest,Version}) ->
                 {_, _, Resource} = jlib:jid_tolower(Dest),
                 ?DEBUG("Sending:  ~p =/= ~p", [R, Resource]),
-                Sender = jlib:make_jid({U, S, <<>>}),
+                Sender = jlib:make_jid({U, S, ""}),
                 %{xmlelement, N, A, C} = Packet,
                 New = build_forward_packet(JID, Packet, Sender, Dest, Direction, Version),
                 ejabberd_router:route(Sender, Dest, New)
@@ -192,32 +192,32 @@ send_copies(JID, Packet, Direction)->
     ok.
 
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_2) ->
-    #xmlel{name = <<"message">>,
-           attrs = [{<<"xmlns">>, <<"jabber:client">>},
-                    {<<"type">>, <<"chat">>},
-                    {<<"from">>, jlib:jid_to_string(Sender)},
-                    {<<"to">>, jlib:jid_to_string(Dest)}],
+    #xmlel{name = "message",
+           attrs = [{"xmlns", "jabber:client"},
+                    {"type", "chat"},
+                    {"from", jlib:jid_to_string(Sender)},
+                    {"to", jlib:jid_to_string(Dest)}],
            children = [
             #xmlel{name = list_to_binary(atom_to_list(Direction)),
-                   attrs = [{<<"xmlns">>, ?NS_CC_2}],
+                   attrs = [{"xmlns", ?NS_CC_2}],
                    children = [
-                    #xmlel{name = <<"forwarded">>,
-                           attrs = [{<<"xmlns">>, ?NS_FORWARD}],
+                    #xmlel{name = "forwarded",
+                           attrs = [{"xmlns", ?NS_FORWARD}],
                            children = [
                             complete_packet(JID, Packet, Direction)]}
                     ]}
             ]};
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_1) ->
-    #xmlel{name = <<"message">>,
-           attrs = [{<<"xmlns">>, <<"jabber:client">>},
-                    {<<"type">>, <<"chat">>},
-                    {<<"from">>, jlib:jid_to_string(Sender)},
-                    {<<"to">>, jlib:jid_to_string(Dest)}],
+    #xmlel{name = "message",
+           attrs = [{"xmlns", "jabber:client"},
+                    {"type", "chat"},
+                    {"from", jlib:jid_to_string(Sender)},
+                    {"to", jlib:jid_to_string(Dest)}],
            children = [
             #xmlel{name = list_to_binary(atom_to_list(Direction)),
-                   attrs = [{<<"xmlns">>, ?NS_CC_1}]},
-            #xmlel{name = <<"forwarded">>,
-                   attrs = [{<<"xmlns">>, ?NS_FORWARD}],
+                   attrs = [{"xmlns", ?NS_CC_1}]},
+            #xmlel{name = "forwarded",
+                   attrs = [{"xmlns", ?NS_FORWARD}],
                    children = [complete_packet(JID, Packet, Direction)]}
             ]}.
 
@@ -237,18 +237,18 @@ disable(Host, U, R)->
     catch _:Error -> {error, Error}
     end.
 
-complete_packet(From, #xmlel{name = <<"message">>, attrs = OrigAttrs} = Packet, sent) ->
+complete_packet(From, #xmlel{name = "message", attrs = OrigAttrs} = Packet, sent) ->
     %% if this is a packet sent by user on this host, then Packet doesn't
     %% include the 'from' attribute. We must add it.
-    Attrs = lists:keystore(<<"xmlns">>, 1, OrigAttrs, {<<"xmlns">>, <<"jabber:client">>}),
-    case proplists:get_value(<<"from">>, Attrs) of
+    Attrs = lists:keystore("xmlns", 1, OrigAttrs, {"xmlns", "jabber:client"}),
+    case proplists:get_value("from", Attrs) of
         undefined ->
-            Packet#xmlel{attrs = [{<<"from">>, jlib:jid_to_string(From)}|Attrs]};
+            Packet#xmlel{attrs = [{"from", jlib:jid_to_string(From)}|Attrs]};
         _ ->
             Packet#xmlel{attrs = Attrs}
     end;
-complete_packet(_From, #xmlel{name = <<"message">>, attrs=OrigAttrs} = Packet, received) ->
-    Attrs = lists:keystore(<<"xmlns">>, 1, OrigAttrs, {<<"xmlns">>, <<"jabber:client">>}),
+complete_packet(_From, #xmlel{name = "message", attrs=OrigAttrs} = Packet, received) ->
+    Attrs = lists:keystore("xmlns", 1, OrigAttrs, {"xmlns", "jabber:client"}),
     Packet#xmlel{attrs = Attrs}.
 
 %% list {resource, cc_version} with carbons enabled for given user and host
