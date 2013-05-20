@@ -126,6 +126,7 @@ iq_handler(From, _To,  #iq{type=set, sub_el = #xmlel{name = Operation, children 
     end;
 
 iq_handler(_From, _To, IQ, _CC)->
+    ?INFO_MSG("carbons IQ received: ~p; Refusing.", [IQ]),
     IQ#iq{type=error, sub_el = [?ERR_NOT_ALLOWED]}.
 
 user_send_packet(From, _To, Packet) ->
