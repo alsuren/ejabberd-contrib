@@ -58,16 +58,25 @@
                     version :: binary() }).
 
 is_carbon_copy(Packet) ->
-    case xml:get_subtag(Packet, "sent") of
-        #xmlelement{name= "sent", attrs = AAttrs};
-        #xmlelement{name= "received", attrs = AAttrs} ->
+    IsSent = case xml:get_subtag(Packet, "sent") of
+        #xmlelement{name= "sent", attrs = AAttrs}->
             case xml:get_attr_s("xmlns", AAttrs) of
                 ?NS_CC_2 -> true;
                 ?NS_CC_1 -> true;
                 _ -> false
             end;
         _ -> false
-    end.
+    end,
+    IsReceived = case xml:get_subtag(Packet, "received") of
+        #xmlelement{name= "received", attrs = BAttrs}->
+            case xml:get_attr_s("xmlns", BAttrs) of
+                ?NS_CC_2 -> true;
+                ?NS_CC_1 -> true;
+                _ -> false
+            end;
+        _ -> false
+    end,
+    IsSent orelse IsReceived.
 
 start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
