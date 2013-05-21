@@ -59,7 +59,8 @@
 
 is_carbon_copy(Packet) ->
     case xml:get_subtag(Packet, "sent") of
-        #xmlelement{name= "sent", attrs = AAttrs}  ->
+        #xmlelement{name= "sent", attrs = AAttrs};
+        #xmlelement{name= "received", attrs = AAttrs} ->
             case xml:get_attr_s("xmlns", AAttrs) of
                 ?NS_CC_2 -> true;
                 ?NS_CC_1 -> true;
@@ -152,7 +153,12 @@ check_and_forward(JID, #xmlelement{name = "message", attrs = Attrs} = Packet, Di
                 false ->
                     case xml:get_subtag(Packet,"forwarded") of
                         false ->
-                            send_copies(JID, Packet, Direction);
+                            case is_carbon_copy(Packet) of
+                                false ->
+                                    send_copies(JID, Packet, Direction);
+                                true ->
+                                    stop
+                            end;
                         _ ->
                             %% stop the hook chain, we don't want mod_logdb to register this message (duplicate)
                             stop
@@ -199,7 +205,7 @@ build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_2) ->
                     {"from", jlib:jid_to_string(Sender)},
                     {"to", jlib:jid_to_string(Dest)}],
            children = [
-            #xmlelement{name = list_to_binary(atom_to_list(Direction)),
+            #xmlelement{name = atom_to_list(Direction),
                    attrs = [{"xmlns", ?NS_CC_2}],
                    children = [
                     #xmlelement{name = "forwarded",
@@ -215,7 +221,7 @@ build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_1) ->
                     {"from", jlib:jid_to_string(Sender)},
                     {"to", jlib:jid_to_string(Dest)}],
            children = [
-            #xmlelement{name = list_to_binary(atom_to_list(Direction)),
+            #xmlelement{name = atom_to_list(Direction),
                    attrs = [{"xmlns", ?NS_CC_1}]},
             #xmlelement{name = "forwarded",
                    attrs = [{"xmlns", ?NS_FORWARD}],
