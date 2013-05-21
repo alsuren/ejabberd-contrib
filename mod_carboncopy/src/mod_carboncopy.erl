@@ -59,7 +59,7 @@
 
 is_carbon_copy(Packet) ->
     case xml:get_subtag(Packet, "sent") of
-        #xmlel{name= "sent", attrs = AAttrs}  ->
+        #xmlelement{name= "sent", attrs = AAttrs}  ->
             case xml:get_attr_s("xmlns", AAttrs) of
                 ?NS_CC_2 -> true;
                 ?NS_CC_1 -> true;
@@ -105,7 +105,7 @@ iq_handler2(From, To, IQ) ->
 iq_handler1(From, To, IQ) ->
     iq_handler(From, To, IQ, ?NS_CC_1).
 
-iq_handler(From, _To,  #iq{type=set, sub_el = #xmlel{name = Operation, children = []}} = IQ, CC)->
+iq_handler(From, _To,  #iq{type=set, sub_el = #xmlelement{name = Operation, children = []}} = IQ, CC)->
     ?INFO_MSG("carbons IQ received: ~p", [IQ]),
     {U, S, R} = jlib:jid_tolower(From),
     Result = case Operation of
@@ -145,7 +145,7 @@ user_receive_packet(_JID, _From, _To, _Packet) ->
 %    - registered to the user_send_packet hook, to be called only once even for multicast
 %    - do not support "private" message mode, and do not modify the original packet in any way
 %    - we also replicate "read" notifications
-check_and_forward(JID, #xmlel{name = "message", attrs = Attrs} = Packet, Direction)->
+check_and_forward(JID, #xmlelement{name = "message", attrs = Attrs} = Packet, Direction)->
     case xml:get_attr_s("type", Attrs) of
         "chat" ->
             case xml:get_subtag(Packet, "private") of
@@ -193,31 +193,31 @@ send_copies(JID, Packet, Direction)->
     ok.
 
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_2) ->
-    #xmlel{name = "message",
+    #xmlelement{name = "message",
            attrs = [{"xmlns", "jabber:client"},
                     {"type", "chat"},
                     {"from", jlib:jid_to_string(Sender)},
                     {"to", jlib:jid_to_string(Dest)}],
            children = [
-            #xmlel{name = list_to_binary(atom_to_list(Direction)),
+            #xmlelement{name = list_to_binary(atom_to_list(Direction)),
                    attrs = [{"xmlns", ?NS_CC_2}],
                    children = [
-                    #xmlel{name = "forwarded",
+                    #xmlelement{name = "forwarded",
                            attrs = [{"xmlns", ?NS_FORWARD}],
                            children = [
                             complete_packet(JID, Packet, Direction)]}
                     ]}
             ]};
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CC_1) ->
-    #xmlel{name = "message",
+    #xmlelement{name = "message",
            attrs = [{"xmlns", "jabber:client"},
                     {"type", "chat"},
                     {"from", jlib:jid_to_string(Sender)},
                     {"to", jlib:jid_to_string(Dest)}],
            children = [
-            #xmlel{name = list_to_binary(atom_to_list(Direction)),
+            #xmlelement{name = list_to_binary(atom_to_list(Direction)),
                    attrs = [{"xmlns", ?NS_CC_1}]},
-            #xmlel{name = "forwarded",
+            #xmlelement{name = "forwarded",
                    attrs = [{"xmlns", ?NS_FORWARD}],
                    children = [complete_packet(JID, Packet, Direction)]}
             ]}.
@@ -238,19 +238,19 @@ disable(Host, U, R)->
     catch _:Error -> {error, Error}
     end.
 
-complete_packet(From, #xmlel{name = "message", attrs = OrigAttrs} = Packet, sent) ->
+complete_packet(From, #xmlelement{name = "message", attrs = OrigAttrs} = Packet, sent) ->
     %% if this is a packet sent by user on this host, then Packet doesn't
     %% include the 'from' attribute. We must add it.
     Attrs = lists:keystore("xmlns", 1, OrigAttrs, {"xmlns", "jabber:client"}),
     case proplists:get_value("from", Attrs) of
         undefined ->
-            Packet#xmlel{attrs = [{"from", jlib:jid_to_string(From)}|Attrs]};
+            Packet#xmlelement{attrs = [{"from", jlib:jid_to_string(From)}|Attrs]};
         _ ->
-            Packet#xmlel{attrs = Attrs}
+            Packet#xmlelement{attrs = Attrs}
     end;
-complete_packet(_From, #xmlel{name = "message", attrs=OrigAttrs} = Packet, received) ->
+complete_packet(_From, #xmlelement{name = "message", attrs=OrigAttrs} = Packet, received) ->
     Attrs = lists:keystore("xmlns", 1, OrigAttrs, {"xmlns", "jabber:client"}),
-    Packet#xmlel{attrs = Attrs}.
+    Packet#xmlelement{attrs = Attrs}.
 
 %% list {resource, cc_version} with carbons enabled for given user and host
 list(User, Server)->
