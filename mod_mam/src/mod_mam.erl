@@ -33,7 +33,7 @@
 %% Other types
 -type filter() :: iolist().
 -type escaped_message_id() :: list().
--type archive_behaviour_bin() :: list(). % <<"roster">> | <<"always">> | <<"newer">>.
+-type archive_behaviour() :: list(). % "roster" | "always" | "newer".
 
 %% ----------------------------------------------------------------------
 %% Constants
@@ -47,13 +47,13 @@ max_result_limit() -> 50.
 encode_direction(incoming) -> "I";
 encode_direction(outgoing) -> "O".
 
-encode_behaviour(<<"roster">>) -> "R";
-encode_behaviour(<<"always">>) -> "A";
-encode_behaviour(<<"newer">>)  -> "N".
+encode_behaviour("roster") -> "R";
+encode_behaviour("always") -> "A";
+encode_behaviour("newer")  -> "N".
 
-decode_behaviour(<<"R">>) -> <<"roster">>;
-decode_behaviour(<<"A">>) -> <<"always">>;
-decode_behaviour(<<"N">>) -> <<"newer">>.
+decode_behaviour("R") -> "roster";
+decode_behaviour("A") -> "always";
+decode_behaviour("N") -> "newer".
 
 %% ----------------------------------------------------------------------
 %% gen_mod callbacks
@@ -437,8 +437,8 @@ sql_transaction_map(LServer, Queries) ->
 -spec get_prefs(LServer, LUser, GlobalDefaultMode) -> Result when
     LServer     :: server_hostname(),
     LUser       :: literal_username(),
-    DefaultMode :: archive_behaviour_bin(),
-    GlobalDefaultMode :: archive_behaviour_bin(),
+    DefaultMode :: archive_behaviour(),
+    GlobalDefaultMode :: archive_behaviour(),
     Result      :: {DefaultMode, AlwaysJIDs, NewerJIDs},
     AlwaysJIDs  :: [literal_jid()],
     NewerJIDs   :: [literal_jid()].
