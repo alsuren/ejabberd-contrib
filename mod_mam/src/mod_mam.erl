@@ -520,7 +520,7 @@ extract_messages(LServer, Filter, IOffset, IMax) ->
       ["SELECT id, added_at, from_jid, message "
        "FROM mam_message ",
         Filter,
-       " ORDER BY added_at"
+       " ORDER BY added_at, id"
        " LIMIT ",
          case IOffset of
              0 -> "";
