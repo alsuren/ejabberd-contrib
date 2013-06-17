@@ -88,10 +88,10 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                _To,
                IQ=#iq{type = set,
                       sub_el = PrefsEl = #xmlelement{name = "prefs"}}) ->
-    ?INFO_MSG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
+    ?DEBUG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
     {DefaultMode, AlwaysJIDs, NewerJIDs} = parse_prefs(PrefsEl),
-    ?INFO_MSG("Parsed data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
+    ?DEBUG("Parsed data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
               [DefaultMode, AlwaysJIDs, NewerJIDs]),
     update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs),
     ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs),
@@ -101,10 +101,10 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                _To,
                IQ=#iq{type = get,
                       sub_el = #xmlelement{name = "prefs"}}) ->
-    ?INFO_MSG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
+    ?DEBUG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
     {DefaultMode, AlwaysJIDs, NewerJIDs} = get_prefs(LServer, LUser, "always"),
-    ?INFO_MSG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
+    ?DEBUG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
               [DefaultMode, AlwaysJIDs, NewerJIDs]),
     ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs),
     IQ#iq{type = result, sub_el = [ResultPrefsEl]};
@@ -113,7 +113,7 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                To,
                IQ=#iq{type = get,
                       sub_el = QueryEl = #xmlelement{name = "query"}}) ->
-    ?INFO_MSG("Handling mam IQ~n    from ~p ~n    to ~p~n    packet ~p.",
+    ?DEBUG("Handling mam IQ~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, IQ]),
     QueryID = xml:get_tag_attr_s("queryid", QueryEl),
     %% Filtering by date.
@@ -148,14 +148,14 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                    ]), default_result_limit())),
 
 
-    ?INFO_MSG("Parsed data~n\tStart ~p~n\tEnd ~p~n\tQueryId ~p~n\tPageSize ~p~n"
+    ?DEBUG("Parsed data~n\tStart ~p~n\tEnd ~p~n\tQueryId ~p~n\tPageSize ~p~n"
               "\tWithSJID ~p~n\tWithSResource ~p~n\tRSM: ~p~n",
               [Start, End, QueryID, PageSize, WithSJID, WithSResource, RSM]),
     SUser = ejabberd_odbc:escape(LUser),
     Filter = prepare_filter(SUser, Start, End, WithSJID, WithSResource),
     TotalCount = calc_count(LServer, Filter),
     Offset     = calc_offset(LServer, Filter, PageSize, TotalCount, RSM),
-    ?INFO_MSG("RSM info: ~nTotal count: ~p~nOffset: ~p~n",
+    ?DEBUG("RSM info: ~nTotal count: ~p~nOffset: ~p~n",
               [TotalCount, Offset]),
     MessageRows = extract_messages(LServer, Filter, Offset, PageSize),
     {FirstId, LastId} =
@@ -180,7 +180,7 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
 %%       attribute as the target JID. 
 on_send_packet(From, To, Packet) ->
 
-    ?INFO_MSG("Send packet~n    from ~p ~n    to ~p~n    packet ~p.",
+    ?DEBUG("Send packet~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, Packet]),
     handle_package(outgoing, From, To, From, Packet).
 
@@ -189,7 +189,7 @@ on_send_packet(From, To, Packet) ->
 %% Note: For incoming messages, the server MUST use the value of the
 %%       'from' attribute as the target JID. 
 on_receive_packet(_JID, From, To, Packet) ->
-    ?INFO_MSG("Receive packet~n    from ~p ~n    to ~p~n    packet ~p.",
+    ?DEBUG("Receive packet~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, Packet]),
     handle_package(incoming, To, From, From, Packet),
     ok.
@@ -210,7 +210,7 @@ handle_package(Dir,
                RemoteJID=#jid{lresource = RLResource},
                FromJID=#jid{}, Packet) ->
     IsComplete = is_complete_message(Packet),
-    ?INFO_MSG("IsComplete ~p.", [IsComplete]),
+    ?DEBUG("IsComplete ~p.", [IsComplete]),
     case IsComplete of
         true ->
             SUser = ejabberd_odbc:escape(LUser),
@@ -225,7 +225,7 @@ handle_package(Dir,
                 newer  -> false;
                 roster -> is_jid_in_user_roster(LServer, LUser, BareSRJID)
             end,
-            ?INFO_MSG("IsInteresting ~p.", [IsInteresting]),
+            ?DEBUG("IsInteresting ~p.", [IsInteresting]),
             case IsInteresting of
                 true -> 
                     SRResource = ejabberd_odbc:escape(RLResource),
@@ -403,7 +403,7 @@ query_behaviour(LServer, SUser, SJID, BareSJID) ->
          ") "
        "ORDER BY remote_jid DESC "
        "LIMIT 1"]),
-    ?INFO_MSG("query_behaviour query returns ~p", [Result]),
+    ?DEBUG("query_behaviour query returns ~p", [Result]),
     Result.
 
 update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs) ->
@@ -418,7 +418,7 @@ update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs) ->
     %% Run as a transaction
     {atomic, [DelResult, InsResult]} =
         sql_transaction_map(LServer, [DelQuery, InsQuery]),
-    ?INFO_MSG("update_settings query returns ~p and ~p", [DelResult, InsResult]),
+    ?DEBUG("update_settings query returns ~p and ~p", [DelResult, InsResult]),
     ok.
 
 encode_first_config_row(SUser, SBehavour, SJID) ->
@@ -472,7 +472,7 @@ archive_message(LServer, SUser, BareSJID, SResource, Direction, FromSJID, SData)
        "VALUES ('", SUser,"', '", BareSJID, "', '", SResource, "',"
                "'", SData, "', '", Direction, "', '", FromSJID, "', ",
                 integer_to_list(current_unix_timestamp()), ")"]),
-    ?INFO_MSG("archive_message query returns ~p", [Result]),
+    ?DEBUG("archive_message query returns ~p", [Result]),
     ok.
 
 remove_user(LServer, SUser) ->
@@ -488,7 +488,7 @@ remove_user(LServer, SUser) ->
       ["DELETE "
        "FROM mam_message "
        "WHERE local_username='", SUser, "'"]),
-    ?INFO_MSG("remove_user query returns ~p and ~p", [Result1, Result2]),
+    ?DEBUG("remove_user query returns ~p and ~p", [Result1, Result2]),
     ok.
 
 message_row_to_xml({UID,LSeconds,LFromJID,LPacket}, QueryID) ->
@@ -527,7 +527,7 @@ extract_messages(LServer, Filter, IOffset, IMax) ->
              _ -> [integer_to_list(IOffset), ", "]
          end,
          integer_to_list(IMax)]),
-    ?INFO_MSG("extract_messages query returns ~p", [MessageRows]),
+    ?DEBUG("extract_messages query returns ~p", [MessageRows]),
     MessageRows.
 
     %% #rsm_in{
