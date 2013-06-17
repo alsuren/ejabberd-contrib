@@ -182,7 +182,7 @@ on_send_packet(From, To, Packet) ->
 
     ?DEBUG("Send packet~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, Packet]),
-    handle_package(outgoing, From, To, From, Packet).
+    handle_packet(outgoing, From, To, From, Packet).
 
 %% @doc Handle an incoming message.
 %%
@@ -191,7 +191,7 @@ on_send_packet(From, To, Packet) ->
 on_receive_packet(_JID, From, To, Packet) ->
     ?DEBUG("Receive packet~n    from ~p ~n    to ~p~n    packet ~p.",
               [From, To, Packet]),
-    handle_package(incoming, To, From, From, Packet),
+    handle_packet(incoming, To, From, From, Packet),
     ok.
 
 on_remove_user(User, Server) ->
@@ -205,7 +205,7 @@ on_remove_user(User, Server) ->
 %% ----------------------------------------------------------------------
 %% Helpers
 
-handle_package(Dir,
+handle_packet(Dir,
                _LocalJID=#jid{luser = LUser, lserver = LServer},
                RemoteJID=#jid{lresource = RLResource},
                FromJID=#jid{}, Packet) ->
