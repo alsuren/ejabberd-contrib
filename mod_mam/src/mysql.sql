@@ -31,9 +31,10 @@ CREATE TABLE mam_message(
   -- I - incoming, remote_jid is a value from From.
   -- O - outgoing, remote_jid is a value from To.
   direction character(1) NOT NULL,
-  -- A timestamp of when the message was sent (for an outgoing message) or received (for an incoming message).
-  -- added_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  added_at int NOT NULL,
+  -- A miliseconds-resolution timestamp of when the message was sent (for an outgoing message)
+  -- or received (for an incoming message).
+  -- added_at timestamp NOT NULL,
+  added_at BIGINT NOT NULL,
   -- Term-encoded message
   message blob NOT NULL
 );

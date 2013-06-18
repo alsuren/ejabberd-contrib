@@ -14,8 +14,8 @@
 %% ----------------------------------------------------------------------
 %% Datetime types
 -type iso8601_datetime_list() :: list().
-%% Seconds from 01.01.1970
--type unix_timestamp() :: non_neg_integer().
+%% Milliseconds from 01.01.1970
+-type milliseconds_timestamp() :: non_neg_integer().
 
 %% ----------------------------------------------------------------------
 %% XMPP types
@@ -118,8 +118,8 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
     QueryID = xml:get_tag_attr_s("queryid", QueryEl),
     %% Filtering by date.
     %% Start :: integer() | undefined
-    Start = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, "start"}, cdata])),
-    End   = maybe_unix_timestamp(xml:get_path_s(QueryEl, [{elem, "end"}, cdata])),
+    Start = maybe_milliseconds_timestamp(xml:get_path_s(QueryEl, [{elem, "start"}, cdata])),
+    End   = maybe_milliseconds_timestamp(xml:get_path_s(QueryEl, [{elem, "end"}, cdata])),
     RSM   = jlib:rsm_decode(QueryEl),
     %% #rsm_in{
     %%    max = non_neg_integer() | undefined,
@@ -471,7 +471,7 @@ archive_message(LServer, SUser, BareSJID, SResource, Direction, FromSJID, SData)
                                 "from_jid, added_at) "
        "VALUES ('", SUser,"', '", BareSJID, "', '", SResource, "',"
                "'", SData, "', '", Direction, "', '", FromSJID, "', ",
-                integer_to_list(current_unix_timestamp()), ")"]),
+                integer_to_list(current_milliseconds_timestamp()), ")"]),
     ?DEBUG("archive_message query returns ~p", [Result]),
     ok.
 
@@ -491,11 +491,11 @@ remove_user(LServer, SUser) ->
     ?DEBUG("remove_user query returns ~p and ~p", [Result1, Result2]),
     ok.
 
-message_row_to_xml({UID,LSeconds,LFromJID,LPacket}, QueryID) ->
+message_row_to_xml({UID,LMilliSeconds,LFromJID,LPacket}, QueryID) ->
     Packet = binary_to_term(list_to_binary(LPacket)),
     FromJID = jlib:string_to_jid(LFromJID),
-    Seconds  = list_to_integer(LSeconds),
-    DateTime = calendar:now_to_universal_time(seconds_to_now(Seconds)),
+    MilliSeconds  = list_to_integer(LMilliSeconds),
+    DateTime = calendar:now_to_universal_time(milliseconds_to_now(MilliSeconds)),
     wrap_message(Packet, QueryID, UID, DateTime, FromJID).
 
 message_row_to_id({BUID,_,_,_}) ->
@@ -612,8 +612,8 @@ calc_count(LServer, Filter) ->
 -spec prepare_filter(SUser, IStart, IEnd, WithSJID, WithSResource) -> filter()
     when
     SUser   :: escaped_username(),
-    IStart  :: unix_timestamp() | undefined,
-    IEnd    :: unix_timestamp() | undefined,
+    IStart  :: milliseconds_timestamp() | undefined,
+    IEnd    :: milliseconds_timestamp() | undefined,
     WithSJID :: escaped_jid(),
     WithSResource :: escaped_resource().
 prepare_filter(SUser, IStart, IEnd, WithSJID, WithSResource) ->
@@ -637,27 +637,27 @@ prepare_filter(SUser, IStart, IEnd, WithSJID, WithSResource) ->
 
 
 %% "maybe" means, that the function may return 'undefined'.
--spec maybe_unix_timestamp(iso8601_datetime_list()) -> unix_timestamp();
+-spec maybe_milliseconds_timestamp(iso8601_datetime_list()) -> milliseconds_timestamp();
                           (<<>>) -> undefined.
-maybe_unix_timestamp("") -> undefined;
-maybe_unix_timestamp(<<>>) -> undefined;
-maybe_unix_timestamp(ISODateTime) -> 
+maybe_milliseconds_timestamp("") -> undefined;
+maybe_milliseconds_timestamp(<<>>) -> undefined;
+maybe_milliseconds_timestamp(ISODateTime) ->
     case iso8601_datetime_list_to_timestamp(ISODateTime) of
         undefined -> undefined;
-        Stamp -> now_to_seconds(Stamp)
+        Stamp -> now_to_milliseconds(Stamp)
     end.
 
--spec current_unix_timestamp() -> unix_timestamp().
-current_unix_timestamp() ->
-    now_to_seconds(os:timestamp()).
+-spec current_milliseconds_timestamp() -> milliseconds_timestamp().
+current_milliseconds_timestamp() ->
+    now_to_milliseconds(os:timestamp()).
 
--spec now_to_seconds(erlang:timestamp()) -> unix_timestamp().
-now_to_seconds({Mega, Secs, _}) ->
-    1000000 * Mega + Secs.
+-spec now_to_milliseconds(erlang:timestamp()) -> milliseconds_timestamp().
+now_to_milliseconds({Mega, Secs, Micro}) ->
+    (1000000000 * Mega) + (Secs * 1000) + (Micro div 1000).
 
--spec seconds_to_now(unix_timestamp()) -> erlang:timestamp().
-seconds_to_now(Seconds) when is_integer(Seconds) ->
-    {Seconds div 1000000, Seconds rem 1000000, 0}.
+-spec milliseconds_to_now(milliseconds_timestamp()) -> erlang:timestamp().
+seconds_to_now(MilliSeconds) when is_integer(MilliSeconds) ->
+    timer:now_diff(MilliSeconds, {0,0,0}).
 
 %% @doc Returns time in `now()' format.
 -spec iso8601_datetime_list_to_timestamp(iso8601_datetime_list()) ->
