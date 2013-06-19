@@ -466,7 +466,7 @@ archive_message(LServer, SUser, BareSJID, SResource, Direction, FromSJID, SData)
     Result =
     ejabberd_odbc:sql_query(
       LServer,
-      ["INSERT INTO mam_message(local_username, remote_bare_jid, "
+      ["INSERT INTO mam_messages(local_username, remote_bare_jid, "
                                 "remote_resource, message, direction, "
                                 "from_jid, added_at) "
        "VALUES ('", SUser,"', '", BareSJID, "', '", SResource, "',"
@@ -486,7 +486,7 @@ remove_user(LServer, SUser) ->
     ejabberd_odbc:sql_query(
       LServer,
       ["DELETE "
-       "FROM mam_message "
+       "FROM mam_messages "
        "WHERE local_username='", SUser, "'"]),
     ?DEBUG("remove_user query returns ~p and ~p", [Result1, Result2]),
     ok.
@@ -518,7 +518,7 @@ extract_messages(LServer, Filter, IOffset, IMax) ->
     ejabberd_odbc:sql_query(
       LServer,
       ["SELECT id, added_at, from_jid, message "
-       "FROM mam_message ",
+       "FROM mam_messages ",
         Filter,
        " ORDER BY added_at, id"
        " LIMIT ",
@@ -563,7 +563,7 @@ calc_offset(_LS, _F, _PS, _TC, _RSM) ->
 %% Zero-based index of the row with UID in the result test.
 %% If the element does not exists, the ID of the next element will
 %% be returned instead.
-%% "SELECT COUNT(*) as "index" FROM mam_message WHERE id <= '",  UID
+%% "SELECT COUNT(*) as "index" FROM mam_messages WHERE id <= '",  UID
 -spec calc_index(LServer, Filter, SUID) -> Count
     when
     LServer  :: server_hostname(),
@@ -574,12 +574,12 @@ calc_index(LServer, Filter, SUID) ->
     {selected, _ColumnNames, [{Index}]} =
     ejabberd_odbc:sql_query(
       LServer,
-      ["SELECT COUNT(*) FROM mam_message ", Filter, " AND id <= '", SUID, "'"]),
+      ["SELECT COUNT(*) FROM mam_messages ", Filter, " AND id <= '", SUID, "'"]),
     list_to_integer(Index).
 
 %% @doc Count of elements in RSet before the passed element.
 %% The element with the passed UID can be already deleted.
-%% "SELECT COUNT(*) as "count" FROM mam_message WHERE id < '",  UID
+%% "SELECT COUNT(*) as "count" FROM mam_messages WHERE id < '",  UID
 -spec calc_before(LServer, Filter, SUID) -> Count
     when
     LServer  :: server_hostname(),
@@ -590,12 +590,12 @@ calc_before(LServer, Filter, SUID) ->
     {selected, _ColumnNames, [{Index}]} =
     ejabberd_odbc:sql_query(
       LServer,
-      ["SELECT COUNT(*) FROM mam_message ", Filter, " AND id < '", SUID, "'"]),
+      ["SELECT COUNT(*) FROM mam_messages ", Filter, " AND id < '", SUID, "'"]),
     list_to_integer(Index).
 
 
 %% @doc Get the total result set size.
-%% "SELECT COUNT(*) as "count" FROM mam_message WHERE "
+%% "SELECT COUNT(*) as "count" FROM mam_messages WHERE "
 -spec calc_count(LServer, Filter) -> Count
     when
     LServer  :: server_hostname(),
@@ -605,7 +605,7 @@ calc_count(LServer, Filter) ->
     {selected, _ColumnNames, [{Count}]} =
     ejabberd_odbc:sql_query(
       LServer,
-      ["SELECT COUNT(*) FROM mam_message ", Filter]),
+      ["SELECT COUNT(*) FROM mam_messages ", Filter]),
     list_to_integer(Count).
 
 

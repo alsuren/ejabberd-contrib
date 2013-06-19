@@ -19,7 +19,7 @@
 
 -- Needs MySQL (at least 4.0.x) with innodb back-end
 
-CREATE TABLE mam_message(
+CREATE TABLE mam_messages(
   -- Message UID
   -- A server-assigned UID that MUST be unique within the archive.
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -38,8 +38,8 @@ CREATE TABLE mam_message(
   -- Term-encoded message
   message blob NOT NULL
 );
-CREATE INDEX i_mam_message_username_added_at USING BTREE ON mam_message(local_username, added_at);
-CREATE INDEX i_mam_message_username_jid_added_at USING BTREE ON mam_message(local_username, remote_bare_jid, added_at);
+CREATE INDEX i_mam_messages_username_added_at USING BTREE ON mam_messages(local_username, added_at);
+CREATE INDEX i_mam_messages_username_jid_added_at USING BTREE ON mam_messages(local_username, remote_bare_jid, added_at);
 
 
 CREATE TABLE mam_config(
