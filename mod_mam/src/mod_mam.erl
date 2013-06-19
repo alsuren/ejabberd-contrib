@@ -652,7 +652,7 @@ current_milliseconds_timestamp() ->
     now_to_milliseconds(os:timestamp()).
 
 -spec now_to_milliseconds(erlang:timestamp()) -> milliseconds_timestamp().
-now_to_milliseconds({Mega, Secs, Micro} = Now) ->
+now_to_milliseconds(Now) ->
     timer:now_diff(Now, {0,0,0}).
 
 -spec milliseconds_to_now(milliseconds_timestamp()) -> erlang:timestamp().
