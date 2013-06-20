@@ -33,7 +33,7 @@
 %% Other types
 -type filter() :: iolist().
 -type escaped_message_id() :: list().
--type archive_behaviour() :: list(). % "roster" | "always" | "newer".
+-type archive_behaviour() :: list(). % "roster" | "always" | "never".
 
 %% ----------------------------------------------------------------------
 %% Constants
@@ -49,11 +49,11 @@ encode_direction(outgoing) -> "O".
 
 encode_behaviour("roster") -> "R";
 encode_behaviour("always") -> "A";
-encode_behaviour("newer")  -> "N".
+encode_behaviour("never")  -> "N".
 
 decode_behaviour("R") -> "roster";
 decode_behaviour("A") -> "always";
-decode_behaviour("N") -> "newer".
+decode_behaviour("N") -> "never".
 
 %% ----------------------------------------------------------------------
 %% gen_mod callbacks
@@ -90,11 +90,11 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                       sub_el = PrefsEl = #xmlelement{name = "prefs"}}) ->
     ?DEBUG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
-    {DefaultMode, AlwaysJIDs, NewerJIDs} = parse_prefs(PrefsEl),
-    ?DEBUG("Parsed data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
-              [DefaultMode, AlwaysJIDs, NewerJIDs]),
-    update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs),
-    ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs),
+    {DefaultMode, AlwaysJIDs, NeverJIDs} = parse_prefs(PrefsEl),
+    ?DEBUG("Parsed data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNeverJIDS ~p~n",
+              [DefaultMode, AlwaysJIDs, NeverJIDs]),
+    update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NeverJIDs),
+    ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs),
     IQ#iq{type = result, sub_el = [ResultPrefsEl]};
 
 process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
@@ -103,10 +103,10 @@ process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
                       sub_el = #xmlelement{name = "prefs"}}) ->
     ?DEBUG("Handling mam prefs IQ~n    from ~p ~n    packet ~p.",
               [From, IQ]),
-    {DefaultMode, AlwaysJIDs, NewerJIDs} = get_prefs(LServer, LUser, "always"),
-    ?DEBUG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNewerJIDS ~p~n",
-              [DefaultMode, AlwaysJIDs, NewerJIDs]),
-    ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs),
+    {DefaultMode, AlwaysJIDs, NeverJIDs} = get_prefs(LServer, LUser, "always"),
+    ?DEBUG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNeverJIDS ~p~n",
+              [DefaultMode, AlwaysJIDs, NeverJIDs]),
+    ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs),
     IQ#iq{type = result, sub_el = [ResultPrefsEl]};
     
 process_mam_iq(From=#jid{luser = LUser, lserver = LServer},
@@ -222,7 +222,7 @@ handle_packet(Dir,
             IsInteresting =
             case behaviour(LServer, SUser, SRJID, BareSRJID) of
                 always -> true;
-                newer  -> false;
+                never  -> false;
                 roster -> is_jid_in_user_roster(LServer, LUser, BareSRJID)
             end,
             ?DEBUG("IsInteresting ~p.", [IsInteresting]),
@@ -329,20 +329,20 @@ result_query(SetEl) ->
         attrs = [{"xmlns", ?NS_MAM}],
         children = [SetEl]}.
 
--spec result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs) -> ResultPrefsEl when
+-spec result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs) -> ResultPrefsEl when
     DefaultMode :: list(),
     AlwaysJIDs  :: [list()],
-    NewerJIDs   :: [list()],
+    NeverJIDs   :: [list()],
     ResultPrefsEl :: elem().
-result_prefs(DefaultMode, AlwaysJIDs, NewerJIDs) ->
+result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs) ->
     AlwaysEl = #xmlelement{name = "always",
                            children = encode_jids(AlwaysJIDs)},
-    NewerEl  = #xmlelement{name = "newer",
-                           children = encode_jids(NewerJIDs)},
+    NeverEl  = #xmlelement{name = "never",
+                           children = encode_jids(NeverJIDs)},
     #xmlelement{
        name = "prefs",
        attrs = [{"xmlns",?NS_MAM}, {"default", DefaultMode}],
-       children = [AlwaysEl, NewerEl]
+       children = [AlwaysEl, NeverEl]
     }.
 
 encode_jids(JIDs) ->
@@ -351,16 +351,16 @@ encode_jids(JIDs) ->
      || JID <- JIDs].
 
 
--spec parse_prefs(PrefsEl) -> {DefaultMode, AlwaysJIDs, NewerJIDs} when
+-spec parse_prefs(PrefsEl) -> {DefaultMode, AlwaysJIDs, NeverJIDs} when
     PrefsEl :: elem(),
     DefaultMode :: list(),
     AlwaysJIDs  :: [list()],
-    NewerJIDs   :: [list()].
+    NeverJIDs   :: [list()].
 parse_prefs(El=#xmlelement{name = "prefs", attrs = Attrs}) ->
     {value, Default} = xml:get_attr("default", Attrs),
     AlwaysJIDs = parse_jid_list(El, "always"),
-    NewerJIDs  = parse_jid_list(El, "newer"),
-    {Default, AlwaysJIDs, NewerJIDs}.
+    NeverJIDs  = parse_jid_list(El, "never"),
+    {Default, AlwaysJIDs, NeverJIDs}.
 
 parse_jid_list(El, Name) ->
     case xml:get_subtag(El, Name) of
@@ -386,7 +386,7 @@ behaviour(LServer, SUser, SJID, BareSJID) ->
         {selected, ["behaviour"], [{Behavour}]} ->
             case Behavour of
                 "A" -> always;
-                "N" -> newer;
+                "N" -> never;
                 "R" -> roster
             end;
         _ -> always %% default for everybody
@@ -410,7 +410,7 @@ query_behaviour(LServer, SUser, SJID, BareSJID) ->
     ?DEBUG("query_behaviour query returns ~p", [Result]),
     Result.
 
-update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs) ->
+update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NeverJIDs) ->
     SUser = ejabberd_odbc:escape(LUser),
     DelQuery = ["DELETE FROM mam_config WHERE local_username = '", SUser, "'"],
     InsQuery = ["INSERT INTO mam_config(local_username, behaviour, remote_jid) "
@@ -418,7 +418,7 @@ update_settings(LServer, LUser, DefaultMode, AlwaysJIDs, NewerJIDs) ->
        [encode_config_row(SUser, "A", ejabberd_odbc:escape(JID))
         || JID <- AlwaysJIDs],
        [encode_config_row(SUser, "N", ejabberd_odbc:escape(JID))
-        || JID <- NewerJIDs]],
+        || JID <- NeverJIDs]],
     %% Run as a transaction
     {atomic, [DelResult, InsResult]} =
         sql_transaction_map(LServer, [DelQuery, InsQuery]),
@@ -443,9 +443,9 @@ sql_transaction_map(LServer, Queries) ->
     LUser       :: literal_username(),
     DefaultMode :: archive_behaviour(),
     GlobalDefaultMode :: archive_behaviour(),
-    Result      :: {DefaultMode, AlwaysJIDs, NewerJIDs},
+    Result      :: {DefaultMode, AlwaysJIDs, NeverJIDs},
     AlwaysJIDs  :: [literal_jid()],
-    NewerJIDs   :: [literal_jid()].
+    NeverJIDs   :: [literal_jid()].
 get_prefs(LServer, LUser, GlobalDefaultMode) ->
     SUser = ejabberd_odbc:escape(LUser),
     {selected, _ColumnNames, Rows} =
@@ -456,14 +456,14 @@ get_prefs(LServer, LUser, GlobalDefaultMode) ->
        "WHERE local_username='", SUser, "'"]),
     decode_prefs_rows(Rows, GlobalDefaultMode, [], []).
 
-decode_prefs_rows([{"", Behavour}|Rows], _DefaultMode, AlwaysJIDs, NewerJIDs) ->
-    decode_prefs_rows(Rows, decode_behaviour(Behavour), AlwaysJIDs, NewerJIDs);
-decode_prefs_rows([{JID, "A"}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
-    decode_prefs_rows(Rows, DefaultMode, [JID|AlwaysJIDs], NewerJIDs);
-decode_prefs_rows([{JID, "N"}|Rows], DefaultMode, AlwaysJIDs, NewerJIDs) ->
-    decode_prefs_rows(Rows, DefaultMode, AlwaysJIDs, [JID|NewerJIDs]);
-decode_prefs_rows([], DefaultMode, AlwaysJIDs, NewerJIDs) ->
-    {DefaultMode, AlwaysJIDs, NewerJIDs}.
+decode_prefs_rows([{"", Behavour}|Rows], _DefaultMode, AlwaysJIDs, NeverJIDs) ->
+    decode_prefs_rows(Rows, decode_behaviour(Behavour), AlwaysJIDs, NeverJIDs);
+decode_prefs_rows([{JID, "A"}|Rows], DefaultMode, AlwaysJIDs, NeverJIDs) ->
+    decode_prefs_rows(Rows, DefaultMode, [JID|AlwaysJIDs], NeverJIDs);
+decode_prefs_rows([{JID, "N"}|Rows], DefaultMode, AlwaysJIDs, NeverJIDs) ->
+    decode_prefs_rows(Rows, DefaultMode, AlwaysJIDs, [JID|NeverJIDs]);
+decode_prefs_rows([], DefaultMode, AlwaysJIDs, NeverJIDs) ->
+    {DefaultMode, AlwaysJIDs, NeverJIDs}.
 
 
 archive_message(LServer, SUser, BareSJID, SResource, Direction, FromSJID, SData) ->
