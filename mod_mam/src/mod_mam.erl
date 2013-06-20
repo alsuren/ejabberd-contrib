@@ -241,6 +241,13 @@ handle_packet(Dir,
         false -> ok
     end.
 
+-spec has_subtag(Packet::#xmlelement{}, Type::list()) -> boolean().
+has_subtag(Packet, Type) ->
+    case xml:get_subtag(Packet, Type) of
+        false -> false;
+        _ -> true
+    end.
+
 %% @doc Check, that the stanza is a message with body.
 %% Servers SHOULD NOT archive messages that do not have a <body/> child tag.
 -spec is_complete_message(Packet::#xmlelement{}) -> boolean().
@@ -250,10 +257,7 @@ is_complete_message(Packet=#xmlelement{name = "message"}) ->
               Type == "normal";
               Type == "chat";
               Type == "groupchat" ->
-        case xml:get_subtag(Packet, "body") of
-            false -> false;
-            _     -> true
-        end;
+        has_subtag(Packet, "body") orelse has_subtag(Packet, "allow-permanent-storage");
     %% Skip <<"error">> type
     _ -> false
     end;
