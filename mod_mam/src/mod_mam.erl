@@ -661,7 +661,7 @@ now_to_milliseconds(Now) ->
 
 -spec milliseconds_to_now(milliseconds_timestamp()) -> erlang:timestamp().
 milliseconds_to_now(MilliSeconds) when is_integer(MilliSeconds) ->
-    {MilliSeconds div 1000000000, (MilliSeconds div 1000) rem 1000000, MilliSeconds rem 1000}.
+    {MilliSeconds div 1000000000000, (MilliSeconds div 1000000) rem 1000000, MilliSeconds rem 1000000}.
 
 %% @doc Returns time in `now()' format.
 -spec iso8601_datetime_list_to_timestamp(iso8601_datetime_list()) ->
